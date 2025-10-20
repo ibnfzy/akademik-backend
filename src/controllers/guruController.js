@@ -1,5 +1,10 @@
 import * as Teacher from "../models/teacher.js";
-import { resolveSemesterReference } from "../models/semesters.js";
+import {
+  resolveSemesterReference,
+  getActiveSemester,
+  isSemesterActive,
+} from "../models/semesters.js";
+import { getSetting } from "../models/settings.js";
 import { successResponse, errorResponse } from "../utils/response.js";
 
 const buildSemesterFilters = (query = {}) => {
@@ -21,7 +26,21 @@ const buildSemesterFilters = (query = {}) => {
   return filters;
 };
 
-const resolveSemesterFromPayload = async (payload, { required = false } = {}) => {
+const SEMESTER_ENFORCEMENT_SETTING_KEY = "semester_enforcement_mode";
+const DEFAULT_SEMESTER_ENFORCEMENT_MODE = "relaxed";
+
+const fetchSemesterEnforcementMode = async () => {
+  const setting = await getSetting(SEMESTER_ENFORCEMENT_SETTING_KEY);
+  const mode = String(setting?.value || DEFAULT_SEMESTER_ENFORCEMENT_MODE).toLowerCase();
+
+  return mode === "strict" ? "strict" : DEFAULT_SEMESTER_ENFORCEMENT_MODE;
+};
+
+const resolveSemesterFromPayload = async (
+  payload,
+  { required = false, referenceDate = new Date() } = {}
+) => {
+  const enforcementMode = await fetchSemesterEnforcementMode();
   const hasSemesterId =
     payload.semesterId !== undefined &&
     payload.semesterId !== null &&
@@ -34,34 +53,82 @@ const resolveSemesterFromPayload = async (payload, { required = false } = {}) =>
     payload.semester !== null &&
     payload.semester !== "";
 
-  if (!hasSemesterId && !hasPair) {
-    if (!required) return null;
-    const err = new Error("SemesterId wajib dikirimkan");
-    err.code = "SEMESTER_REQUIRED";
-    throw err;
-  }
+  let semester = null;
 
-  try {
-    const semester = await resolveSemesterReference({
-      semesterId: hasSemesterId ? payload.semesterId : undefined,
-      tahunAjaran: hasPair ? payload.tahunAjaran : undefined,
-      semester: hasPair ? payload.semester : undefined,
-    });
-
-    if (!semester) {
-      const err = new Error("Semester tidak ditemukan");
-      err.code = "SEMESTER_NOT_FOUND";
+  if (hasSemesterId || hasPair) {
+    try {
+      semester = await resolveSemesterReference({
+        semesterId: hasSemesterId ? payload.semesterId : undefined,
+        tahunAjaran: hasPair ? payload.tahunAjaran : undefined,
+        semester: hasPair ? payload.semester : undefined,
+      });
+    } catch (err) {
+      if (err.message === "Semester tidak ditemukan") {
+        const error = new Error(err.message);
+        error.code = "SEMESTER_NOT_FOUND";
+        throw error;
+      }
       throw err;
     }
 
-    return semester;
-  } catch (err) {
-    if (err.message === "Semester tidak ditemukan") {
-      const error = new Error(err.message);
+    if (!semester) {
+      const error = new Error("Semester tidak ditemukan");
       error.code = "SEMESTER_NOT_FOUND";
       throw error;
     }
-    throw err;
+
+    if (!isSemesterActive(semester, referenceDate) && enforcementMode === "strict") {
+      const error = new Error("Semester yang dipilih tidak aktif");
+      error.code = "SEMESTER_NOT_ACTIVE";
+      throw error;
+    }
+  } else {
+    semester = await getActiveSemester(referenceDate);
+
+    if (!semester && (required || enforcementMode === "strict")) {
+      const error = new Error("Semester aktif tidak ditemukan");
+      error.code = "ACTIVE_SEMESTER_NOT_FOUND";
+      throw error;
+    }
+  }
+
+  if (!semester && required) {
+    const error = new Error("SemesterId wajib dikirimkan");
+    error.code = "SEMESTER_REQUIRED";
+    throw error;
+  }
+
+  return semester;
+};
+
+const respondSemesterError = (res, err) => {
+  switch (err.code) {
+    case "SEMESTER_REQUIRED":
+      errorResponse(
+        res,
+        400,
+        "semesterId atau kombinasi tahun ajaran dan semester wajib diisi"
+      );
+      return true;
+    case "SEMESTER_NOT_FOUND":
+      errorResponse(res, 404, "Semester tidak ditemukan");
+      return true;
+    case "ACTIVE_SEMESTER_NOT_FOUND":
+      errorResponse(
+        res,
+        409,
+        "Tidak ada semester aktif yang dapat digunakan. Silakan hubungi admin untuk mengatur semester berjalan."
+      );
+      return true;
+    case "SEMESTER_NOT_ACTIVE":
+      errorResponse(
+        res,
+        400,
+        "Semester yang dipilih sudah tidak aktif. Silakan gunakan semester yang sedang berjalan."
+      );
+      return true;
+    default:
+      return false;
   }
 };
 
@@ -114,28 +181,25 @@ export const addNilai = async (req, res) => {
       required: true,
     });
 
+    const {
+      semesterId: _semesterId,
+      tahunAjaran: _tahunAjaran,
+      semester: _semesterNumber,
+      ...restBody
+    } = req.body;
+
     const payload = {
-      ...req.body,
-      semesterId: semester.id,
+      ...restBody,
       teacherId: req.params.id,
       verified: false,
+      resolvedSemester: semester,
     };
-
-    delete payload.tahunAjaran;
-    delete payload.semester;
 
     const nilai = await Teacher.insertNilai(payload);
     return successResponse(res, nilai, "Nilai berhasil ditambahkan");
   } catch (err) {
-    if (err.code === "SEMESTER_REQUIRED") {
-      return errorResponse(
-        res,
-        400,
-        "semesterId atau kombinasi tahun ajaran dan semester wajib diisi"
-      );
-    }
-    if (err.code === "SEMESTER_NOT_FOUND") {
-      return errorResponse(res, 404, "Semester tidak ditemukan");
+    if (respondSemesterError(res, err)) {
+      return;
     }
     return errorResponse(res, 500, err.message);
   }
@@ -146,30 +210,27 @@ export const updateNilai = async (req, res) => {
   try {
     const semester = await resolveSemesterFromPayload(req.body);
 
+    const {
+      semesterId: _semesterId,
+      tahunAjaran: _tahunAjaran,
+      semester: _semesterNumber,
+      ...restBody
+    } = req.body;
+
     const payload = {
-      ...req.body,
+      ...restBody,
       teacherId: req.params.id,
     };
 
     if (semester) {
-      payload.semesterId = semester.id;
+      payload.resolvedSemester = semester;
     }
-
-    delete payload.tahunAjaran;
-    delete payload.semester;
 
     const nilai = await Teacher.updateNilai(req.params.gradeId, payload);
     return successResponse(res, nilai, "Nilai berhasil diperbarui");
   } catch (err) {
-    if (err.code === "SEMESTER_REQUIRED") {
-      return errorResponse(
-        res,
-        400,
-        "semesterId atau kombinasi tahun ajaran dan semester wajib diisi"
-      );
-    }
-    if (err.code === "SEMESTER_NOT_FOUND") {
-      return errorResponse(res, 404, "Semester tidak ditemukan");
+    if (respondSemesterError(res, err)) {
+      return;
     }
     return errorResponse(res, 500, err.message);
   }
@@ -192,27 +253,24 @@ export const addKehadiran = async (req, res) => {
       required: true,
     });
 
-    const payload = {
-      ...req.body,
-      semesterId: semester.id,
-      teacherId: req.params.id,
-    };
+    const {
+      semesterId: _semesterId,
+      tahunAjaran: _tahunAjaran,
+      semester: _semesterNumber,
+      ...restBody
+    } = req.body;
 
-    delete payload.tahunAjaran;
-    delete payload.semester;
+    const payload = {
+      ...restBody,
+      teacherId: req.params.id,
+      resolvedSemester: semester,
+    };
 
     const absen = await Teacher.insertKehadiran(payload);
     return successResponse(res, absen, "Kehadiran berhasil dicatat");
   } catch (err) {
-    if (err.code === "SEMESTER_REQUIRED") {
-      return errorResponse(
-        res,
-        400,
-        "semesterId atau kombinasi tahun ajaran dan semester wajib diisi"
-      );
-    }
-    if (err.code === "SEMESTER_NOT_FOUND") {
-      return errorResponse(res, 404, "Semester tidak ditemukan");
+    if (respondSemesterError(res, err)) {
+      return;
     }
     return errorResponse(res, 500, err.message);
   }
@@ -223,17 +281,21 @@ export const updateKehadiran = async (req, res) => {
   try {
     const semester = await resolveSemesterFromPayload(req.body);
 
+    const {
+      semesterId: _semesterId,
+      tahunAjaran: _tahunAjaran,
+      semester: _semesterNumber,
+      ...restBody
+    } = req.body;
+
     const payload = {
-      ...req.body,
+      ...restBody,
       teacherId: req.params.id,
     };
 
     if (semester) {
-      payload.semesterId = semester.id;
+      payload.resolvedSemester = semester;
     }
-
-    delete payload.tahunAjaran;
-    delete payload.semester;
 
     const absen = await Teacher.updateKehadiran(
       req.params.attendanceId,
@@ -241,15 +303,8 @@ export const updateKehadiran = async (req, res) => {
     );
     return successResponse(res, absen, "Kehadiran berhasil diperbarui");
   } catch (err) {
-    if (err.code === "SEMESTER_REQUIRED") {
-      return errorResponse(
-        res,
-        400,
-        "semesterId atau kombinasi tahun ajaran dan semester wajib diisi"
-      );
-    }
-    if (err.code === "SEMESTER_NOT_FOUND") {
-      return errorResponse(res, 404, "Semester tidak ditemukan");
+    if (respondSemesterError(res, err)) {
+      return;
     }
     return errorResponse(res, 500, err.message);
   }

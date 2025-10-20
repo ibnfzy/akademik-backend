@@ -58,6 +58,9 @@ import {
   createSemester,
   updateSemester,
   deleteSemester,
+  // Settings
+  getSemesterEnforcementSetting,
+  updateSemesterEnforcementSetting,
 } from "../controllers/adminController.js";
 
 import { authenticate } from "../middlewares/auth.js";
@@ -144,5 +147,11 @@ router.get("/semesters", getSemesters);
 router.post("/semesters", createSemester);
 router.put("/semesters/:id", updateSemester);
 router.delete("/semesters/:id", deleteSemester);
+
+// ==========================
+// Settings Management
+// ==========================
+router.get("/settings/semester-enforcement", getSemesterEnforcementSetting);
+router.put("/settings/semester-enforcement", updateSemesterEnforcementSetting);
 
 export default router;

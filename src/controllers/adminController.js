@@ -10,6 +10,7 @@ import * as Achievement from "../models/achievement.js";
 import * as Program from "../models/program.js";
 import * as RegistrationLink from "../models/registrationLink.js";
 import * as Semester from "../models/semesters.js";
+import * as Settings from "../models/settings.js";
 
 import { successResponse, errorResponse } from "../utils/response.js";
 
@@ -416,6 +417,62 @@ export const deleteSemester = async (req, res) => {
   try {
     await Semester.deleteSemester(req.params.id);
     return successResponse(res, {}, "Semester berhasil dihapus");
+  } catch (err) {
+    return errorResponse(res, 500, err.message);
+  }
+};
+
+//
+// SETTINGS
+//
+const SEMESTER_ENFORCEMENT_SETTING_KEY = "semester_enforcement_mode";
+const SEMESTER_ENFORCEMENT_VALID_MODES = ["relaxed", "strict"];
+
+const normalizeSemesterEnforcementMode = (mode) => {
+  if (!mode) return null;
+  const normalized = String(mode).toLowerCase();
+  return SEMESTER_ENFORCEMENT_VALID_MODES.includes(normalized)
+    ? normalized
+    : null;
+};
+
+export const getSemesterEnforcementSetting = async (req, res) => {
+  try {
+    const setting = await Settings.getSetting(SEMESTER_ENFORCEMENT_SETTING_KEY);
+    const mode = normalizeSemesterEnforcementMode(setting?.value) ?? "relaxed";
+
+    return successResponse(
+      res,
+      { mode },
+      "Pengaturan mode semester berhasil diambil"
+    );
+  } catch (err) {
+    return errorResponse(res, 500, err.message);
+  }
+};
+
+export const updateSemesterEnforcementSetting = async (req, res) => {
+  try {
+    const mode = normalizeSemesterEnforcementMode(req.body?.mode);
+
+    if (!mode) {
+      return errorResponse(
+        res,
+        400,
+        "Mode semester harus bernilai 'strict' atau 'relaxed'"
+      );
+    }
+
+    const setting = await Settings.upsertSetting(
+      SEMESTER_ENFORCEMENT_SETTING_KEY,
+      mode
+    );
+
+    return successResponse(
+      res,
+      { mode: setting.value },
+      "Pengaturan mode semester berhasil diperbarui"
+    );
   } catch (err) {
     return errorResponse(res, 500, err.message);
   }

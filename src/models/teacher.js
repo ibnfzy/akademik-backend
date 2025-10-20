@@ -1,5 +1,4 @@
 import db from "../config/db.js";
-import { resolveSemesterReference } from "./semesters.js";
 
 const semesterSelects = [
   "sm.tahunAjaran as semesterTahunAjaran",
@@ -109,21 +108,17 @@ const fetchAttendanceById = (client, id) => {
   return buildAttendanceQuery(client).where("a.id", id).first();
 };
 
-const ensureSemesterForPayload = async (client, payload) => {
-  const semester = await resolveSemesterReference(
-    {
-      semesterId: payload.semesterId,
-      tahunAjaran: payload.tahunAjaran,
-      semester: payload.semester,
-    },
-    client
-  );
-
-  if (!semester) {
-    throw new Error("SemesterId wajib diisi");
+const applyResolvedSemester = (payload, resolvedSemester) => {
+  if (!resolvedSemester) {
+    return payload;
   }
 
-  return semester;
+  return {
+    ...payload,
+    semesterId: resolvedSemester.id,
+    tahunAjaran: resolvedSemester.tahunAjaran,
+    semester: resolvedSemester.semester,
+  };
 };
 
 // 🔹 Ambil semua guru (guru & walikelas)
@@ -225,20 +220,18 @@ export const getAllGrades = (filters = {}) => {
 
 // Tambah nilai siswa
 export const insertNilai = async (data) => {
-  return db.transaction(async (trx) => {
-    const { semesterId, tahunAjaran, semester, ...rest } = data;
-    const semesterRow = await ensureSemesterForPayload(trx, {
-      semesterId,
-      tahunAjaran,
-      semester,
-    });
+  const { resolvedSemester, ...rest } = data;
 
-    const [id] = await trx("grades").insert({
-      ...rest,
-      semesterId: semesterRow.id,
-      tahunAjaran: semesterRow.tahunAjaran,
-      semester: semesterRow.semester,
-    });
+  if (!resolvedSemester) {
+    const error = new Error("SemesterId wajib diisi");
+    error.code = "SEMESTER_REQUIRED";
+    throw error;
+  }
+
+  return db.transaction(async (trx) => {
+    const payload = applyResolvedSemester(rest, resolvedSemester);
+
+    const [id] = await trx("grades").insert(payload);
 
     return fetchGradeById(trx, id);
   });
@@ -247,23 +240,11 @@ export const insertNilai = async (data) => {
 // Update nilai siswa
 export const updateNilai = async (id, data) => {
   return db.transaction(async (trx) => {
-    const { semesterId, tahunAjaran, semester, ...rest } = data;
-    const payload = { ...rest };
+    const { resolvedSemester, ...rest } = data;
+    let payload = { ...rest };
 
-    if (
-      semesterId !== undefined ||
-      tahunAjaran !== undefined ||
-      semester !== undefined
-    ) {
-      const semesterRow = await ensureSemesterForPayload(trx, {
-        semesterId,
-        tahunAjaran,
-        semester,
-      });
-
-      payload.semesterId = semesterRow.id;
-      payload.tahunAjaran = semesterRow.tahunAjaran;
-      payload.semester = semesterRow.semester;
+    if (resolvedSemester) {
+      payload = applyResolvedSemester(payload, resolvedSemester);
     }
 
     if (Object.keys(payload).length === 0) {
@@ -297,20 +278,18 @@ export const getAllAttendance = (filters = {}) => {
 
 // Tambah kehadiran siswa
 export const insertKehadiran = async (data) => {
-  return db.transaction(async (trx) => {
-    const { semesterId, tahunAjaran, semester, ...rest } = data;
-    const semesterRow = await ensureSemesterForPayload(trx, {
-      semesterId,
-      tahunAjaran,
-      semester,
-    });
+  const { resolvedSemester, ...rest } = data;
 
-    const [id] = await trx("attendance").insert({
-      ...rest,
-      semesterId: semesterRow.id,
-      tahunAjaran: semesterRow.tahunAjaran,
-      semester: semesterRow.semester,
-    });
+  if (!resolvedSemester) {
+    const error = new Error("SemesterId wajib diisi");
+    error.code = "SEMESTER_REQUIRED";
+    throw error;
+  }
+
+  return db.transaction(async (trx) => {
+    const payload = applyResolvedSemester(rest, resolvedSemester);
+
+    const [id] = await trx("attendance").insert(payload);
 
     return fetchAttendanceById(trx, id);
   });
@@ -319,23 +298,11 @@ export const insertKehadiran = async (data) => {
 // Update kehadiran siswa
 export const updateKehadiran = async (attendanceId, data) => {
   return db.transaction(async (trx) => {
-    const { semesterId, tahunAjaran, semester, ...rest } = data;
-    const payload = { ...rest };
+    const { resolvedSemester, ...rest } = data;
+    let payload = { ...rest };
 
-    if (
-      semesterId !== undefined ||
-      tahunAjaran !== undefined ||
-      semester !== undefined
-    ) {
-      const semesterRow = await ensureSemesterForPayload(trx, {
-        semesterId,
-        tahunAjaran,
-        semester,
-      });
-
-      payload.semesterId = semesterRow.id;
-      payload.tahunAjaran = semesterRow.tahunAjaran;
-      payload.semester = semesterRow.semester;
+    if (resolvedSemester) {
+      payload = applyResolvedSemester(payload, resolvedSemester);
     }
 
     if (Object.keys(payload).length === 0) {
