@@ -9,6 +9,7 @@ import * as SchoolProfile from "../models/schoolProfile.js";
 import * as Achievement from "../models/achievement.js";
 import * as Program from "../models/program.js";
 import * as RegistrationLink from "../models/registrationLink.js";
+import * as Semester from "../models/semesters.js";
 
 import { successResponse, errorResponse } from "../utils/response.js";
 
@@ -376,6 +377,45 @@ export const deleteRegistrationLink = async (req, res) => {
   try {
     await RegistrationLink.deleteLink(req.params.id);
     return successResponse(res, {}, "Link registrasi berhasil dihapus");
+  } catch (err) {
+    return errorResponse(res, 500, err.message);
+  }
+};
+
+//
+// SEMESTERS
+//
+export const getSemesters = async (req, res) => {
+  try {
+    const semesters = await Semester.getAllSemesters();
+    return successResponse(res, semesters, "Daftar semester berhasil diambil");
+  } catch (err) {
+    return errorResponse(res, 500, err.message);
+  }
+};
+
+export const createSemester = async (req, res) => {
+  try {
+    const semester = await Semester.createSemester(req.body);
+    return successResponse(res, semester, "Semester berhasil dibuat");
+  } catch (err) {
+    return errorResponse(res, 500, err.message);
+  }
+};
+
+export const updateSemester = async (req, res) => {
+  try {
+    const semester = await Semester.updateSemester(req.params.id, req.body);
+    return successResponse(res, semester, "Semester berhasil diperbarui");
+  } catch (err) {
+    return errorResponse(res, 500, err.message);
+  }
+};
+
+export const deleteSemester = async (req, res) => {
+  try {
+    await Semester.deleteSemester(req.params.id);
+    return successResponse(res, {}, "Semester berhasil dihapus");
   } catch (err) {
     return errorResponse(res, 500, err.message);
   }

@@ -2,6 +2,25 @@ import * as Teacher from "../models/teacher.js";
 import * as Student from "../models/students.js";
 import { successResponse, errorResponse } from "../utils/response.js";
 
+const buildSemesterFilters = (query = {}) => {
+  const filters = {};
+
+  if (query.semesterId !== undefined && query.semesterId !== null && query.semesterId !== "") {
+    filters.semesterId = query.semesterId;
+  }
+
+  const tahunAjaran = query.tahunAjaran ?? query.tahun;
+  if (tahunAjaran !== undefined && tahunAjaran !== null && tahunAjaran !== "") {
+    filters.tahunAjaran = tahunAjaran;
+  }
+
+  if (query.semester !== undefined && query.semester !== null && query.semester !== "") {
+    filters.semester = query.semester;
+  }
+
+  return filters;
+};
+
 // GET /walikelas/:id/kelas/siswa
 export const getSiswaKelas = async (req, res) => {
   try {
@@ -16,9 +35,9 @@ export const getSiswaKelas = async (req, res) => {
 // GET /walikelas/:id/kelas/nilai
 export const getNilaiKelas = async (req, res) => {
   try {
-    const { tahun, semester } = req.query;
+    const filters = buildSemesterFilters(req.query);
     const { id } = req.params;
-    const nilai = await Teacher.getNilaiByKelasId(id, tahun, semester);
+    const nilai = await Teacher.getNilaiByKelasId(id, filters);
     return successResponse(res, nilai);
   } catch (err) {
     return errorResponse(res, 500, err.message);
@@ -28,9 +47,9 @@ export const getNilaiKelas = async (req, res) => {
 // GET /walikelas/:id/kelas/kehadiran
 export const getKehadiranKelas = async (req, res) => {
   try {
-    const { tahun, semester } = req.query;
+    const filters = buildSemesterFilters(req.query);
     const { id } = req.params;
-    const absensi = await Teacher.getKehadiranByKelasId(id, tahun, semester);
+    const absensi = await Teacher.getKehadiranByKelasId(id, filters);
     return successResponse(res, absensi);
   } catch (err) {
     return errorResponse(res, 500, err.message);
@@ -96,14 +115,16 @@ export const verifikasiNilai = async (req, res) => {
 // GET /walikelas/:id/siswa/:studentId/raport
 export const getRaportSiswa = async (req, res) => {
   try {
-    const { tahun, semester } = req.query;
+    const filters = buildSemesterFilters(req.query);
     const raport = await Student.getRaportById(
       req.params.studentId,
-      tahun,
-      semester
+      filters
     );
     return successResponse(res, raport);
   } catch (err) {
+    if (err.message === "Semester tidak ditemukan") {
+      return errorResponse(res, 404, err.message);
+    }
     return errorResponse(res, 500, err.message);
   }
 };
