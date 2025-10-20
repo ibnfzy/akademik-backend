@@ -52,6 +52,12 @@ import {
   createRegistrationLink,
   updateRegistrationLink,
   deleteRegistrationLink,
+
+  // Semesters
+  getSemesters,
+  createSemester,
+  updateSemester,
+  deleteSemester,
 } from "../controllers/adminController.js";
 
 import { authenticate } from "../middlewares/auth.js";
@@ -130,5 +136,13 @@ router.get("/registration-links", getRegistrationLinks);
 router.post("/registration-links", createRegistrationLink);
 router.put("/registration-links/:id", updateRegistrationLink);
 router.delete("/registration-links/:id", deleteRegistrationLink);
+
+// ==========================
+// Semester Management
+// ==========================
+router.get("/semesters", getSemesters);
+router.post("/semesters", createSemester);
+router.put("/semesters/:id", updateSemester);
+router.delete("/semesters/:id", deleteSemester);
 
 export default router;

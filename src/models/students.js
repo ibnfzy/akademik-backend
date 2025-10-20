@@ -1,4 +1,60 @@
 import db from "../config/db.js";
+import { resolveSemesterReference } from "./semesters.js";
+
+const semesterSelects = [
+  "sm.tahunAjaran as semesterTahunAjaran",
+  "sm.semester as semesterKe",
+  "sm.tanggalMulai as semesterTanggalMulai",
+  "sm.tanggalSelesai as semesterTanggalSelesai",
+  "sm.jumlahHariBelajar as semesterJumlahHariBelajar",
+  "sm.catatan as semesterCatatan",
+];
+
+const normalizeSemesterFilter = (filters = {}) => {
+  const normalized = {};
+
+  if (
+    filters.semesterId !== undefined &&
+    filters.semesterId !== null &&
+    filters.semesterId !== ""
+  ) {
+    const parsedSemesterId = Number(filters.semesterId);
+    if (!Number.isNaN(parsedSemesterId)) {
+      normalized.semesterId = parsedSemesterId;
+    }
+  }
+
+  if (filters.tahunAjaran !== undefined && filters.tahunAjaran !== null && filters.tahunAjaran !== "") {
+    normalized.tahunAjaran = filters.tahunAjaran;
+  }
+
+  if (
+    filters.semester !== undefined &&
+    filters.semester !== null &&
+    filters.semester !== ""
+  ) {
+    const parsedSemester = Number(filters.semester);
+    if (!Number.isNaN(parsedSemester)) {
+      normalized.semester = parsedSemester;
+    }
+  }
+
+  return normalized;
+};
+
+const applySemesterFilter = (query, alias, filters = {}) => {
+  const normalized = normalizeSemesterFilter(filters);
+
+  if (normalized.semesterId) {
+    query.where(`${alias}.semesterId`, normalized.semesterId);
+  } else if (normalized.tahunAjaran && normalized.semester !== undefined) {
+    query
+      .where(`${alias}.tahunAjaran`, normalized.tahunAjaran)
+      .where(`${alias}.semester`, normalized.semester);
+  }
+
+  return query;
+};
 
 // 🔹 Ambil data siswa by id
 export const getStudentById = async (id) => {
@@ -113,39 +169,37 @@ export const deleteStudent = async (id) => {
 };
 
 // 🔹 Ambil nilai siswa
-export const getStudentGrades = async (studentId, tahun, semester) => {
-  let query = db("grades as g")
+export const getStudentGrades = async (studentId, filters = {}) => {
+  const query = db("grades as g")
     .join("subjects as s", "g.subjectId", "s.id")
     .join("teachers as t", "g.teacherId", "t.id")
-    .select("g.*", "s.nama as subjectName", "t.nama as teacherName")
+    .leftJoin("semesters as sm", "g.semesterId", "sm.id")
+    .select("g.*", "s.nama as subjectName", "t.nama as teacherName", ...semesterSelects)
     .where("g.studentId", studentId);
 
-  if (tahun) query.where("g.tahunAjaran", tahun);
-  if (semester) query.where("g.semester", semester);
-
+  applySemesterFilter(query, "g", filters);
   return query;
 };
 
 // 🔹 Ambil kehadiran siswa
-export const getStudentAttendance = async (studentId, tahun, semester) => {
-  let query = db("attendance as a")
+export const getStudentAttendance = async (studentId, filters = {}) => {
+  const query = db("attendance as a")
     .join("subjects as s", "a.subjectId", "s.id")
-    .select("a.*", "s.nama as subjectName")
+    .leftJoin("semesters as sm", "a.semesterId", "sm.id")
+    .select("a.*", "s.nama as subjectName", ...semesterSelects)
     .where("a.studentId", studentId);
 
-  if (tahun) query.where("a.tahunAjaran", tahun);
-  if (semester) query.where("a.semester", semester);
-
+  applySemesterFilter(query, "a", filters);
   return query;
 };
 
 // 🔹 Ambil raport siswa (nilai + kehadiran)
-export const getRaportById = async (studentId, tahun, semester) => {
+export const getRaportById = async (studentId, filters = {}) => {
   const student = await getStudentById(studentId);
   if (!student) return null;
 
-  const grades = await getStudentGrades(studentId, tahun, semester);
-  const attendance = await getStudentAttendance(studentId, tahun, semester);
+  const grades = await getStudentGrades(studentId, filters);
+  const attendance = await getStudentAttendance(studentId, filters);
   const c = await db("classes").where({ id: student.kelasId }).first();
 
   const walikelas = await db("teachers")
@@ -154,12 +208,49 @@ export const getRaportById = async (studentId, tahun, semester) => {
 
   const schoolProfile = await db("school_profile").first();
 
+  let semesterMeta = null;
+  if (
+    filters &&
+    (filters.semesterId ||
+      (filters.tahunAjaran && filters.semester !== undefined && filters.semester !== null && filters.semester !== ""))
+  ) {
+    semesterMeta = await resolveSemesterReference(
+      {
+        semesterId: filters.semesterId,
+        tahunAjaran: filters.tahunAjaran,
+        semester: filters.semester,
+      },
+      db
+    );
+  }
+
+  const tahunAjaran = semesterMeta
+    ? semesterMeta.tahunAjaran
+    : filters.tahunAjaran ?? null;
+  const semesterNumber = semesterMeta
+    ? Number(semesterMeta.semester)
+    : filters.semester !== undefined && filters.semester !== null && filters.semester !== ""
+    ? Number(filters.semester)
+    : null;
+
   return {
     student,
     grades,
     attendance,
-    tahunAjaran: tahun,
-    semester: semester ? Number(semester) : null,
+    semesterId: semesterMeta ? semesterMeta.id : filters.semesterId ?? null,
+    tahunAjaran,
+    semester: semesterNumber,
+    semesterInfo: semesterMeta
+      ? {
+          id: semesterMeta.id,
+          tahunAjaran: semesterMeta.tahunAjaran,
+          semester: Number(semesterMeta.semester),
+          tanggalMulai: semesterMeta.tanggalMulai,
+          tanggalSelesai: semesterMeta.tanggalSelesai,
+          jumlahHariBelajar: semesterMeta.jumlahHariBelajar,
+          catatan: semesterMeta.catatan,
+        }
+      : null,
     walikelas: walikelas ? { nama: walikelas.nama, nip: walikelas.nip } : null,
     profileSchool: schoolProfile || {},
   };
