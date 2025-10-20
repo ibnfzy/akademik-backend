@@ -24,7 +24,11 @@ const normalizeSemesterFilter = (filters = {}) => {
     }
   }
 
-  if (filters.tahunAjaran !== undefined && filters.tahunAjaran !== null && filters.tahunAjaran !== "") {
+  if (
+    filters.tahunAjaran !== undefined &&
+    filters.tahunAjaran !== null &&
+    filters.tahunAjaran !== ""
+  ) {
     normalized.tahunAjaran = filters.tahunAjaran;
   }
 
@@ -126,7 +130,7 @@ const ensureSemesterForPayload = async (client, payload) => {
 export const getAllTeachers = async () => {
   return db("teachers as t")
     .join("users as u", "t.userId", "u.id")
-    .select("t.id", "t.userId", "t.nip", "t.nama", "u.role", "u.email")
+    .select("t.*", "u.role", "u.email")
     .orderBy("t.id", "desc");
 };
 
@@ -338,9 +342,7 @@ export const updateKehadiran = async (attendanceId, data) => {
       return fetchAttendanceById(trx, attendanceId);
     }
 
-    await trx("attendance")
-      .where({ id: attendanceId })
-      .update(payload);
+    await trx("attendance").where({ id: attendanceId }).update(payload);
 
     return fetchAttendanceById(trx, attendanceId);
   });
