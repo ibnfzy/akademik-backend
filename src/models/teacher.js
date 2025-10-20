@@ -42,15 +42,26 @@ const normalizeSemesterFilter = (filters = {}) => {
   return normalized;
 };
 
-const applySemesterFilter = (query, alias, filters = {}) => {
+const applySemesterFilter = (query, aliasOrConfig, filters = {}) => {
   const normalized = normalizeSemesterFilter(filters);
+  const config =
+    typeof aliasOrConfig === "string"
+      ? { referenceAlias: aliasOrConfig, semesterAlias: aliasOrConfig }
+      : aliasOrConfig || {};
+
+  const referenceAlias = config.referenceAlias ?? config.alias ?? null;
+  if (!referenceAlias) {
+    return query;
+  }
+
+  const semesterAlias = config.semesterAlias ?? referenceAlias;
 
   if (normalized.semesterId) {
-    query.where(`${alias}.semesterId`, normalized.semesterId);
+    query.where(`${referenceAlias}.semesterId`, normalized.semesterId);
   } else if (normalized.tahunAjaran && normalized.semester !== undefined) {
     query
-      .where(`${alias}.tahunAjaran`, normalized.tahunAjaran)
-      .where(`${alias}.semester`, normalized.semester);
+      .where(`${semesterAlias}.tahunAjaran`, normalized.tahunAjaran)
+      .where(`${semesterAlias}.semester`, normalized.semester);
   }
 
   return query;
@@ -200,7 +211,11 @@ export const getSubjectsByTeacherId = (teacherId) => {
 // Ambil semua nilai (untuk guru panel filter frontend)
 export const getAllGrades = (filters = {}) => {
   const query = buildGradeQuery();
-  applySemesterFilter(query, "g", filters);
+  applySemesterFilter(
+    query,
+    { referenceAlias: "g", semesterAlias: "sm" },
+    filters
+  );
   return query;
 };
 
@@ -268,7 +283,11 @@ export const deleteNilai = (gradeId) => {
 // Ambil semua kehadiran
 export const getAllAttendance = (filters = {}) => {
   const query = buildAttendanceQuery();
-  applySemesterFilter(query, "a", filters);
+  applySemesterFilter(
+    query,
+    { referenceAlias: "a", semesterAlias: "sm" },
+    filters
+  );
   return query;
 };
 
@@ -339,14 +358,22 @@ export const deleteKehadiran = (attendanceId) => {
 // Ambil nilai semua siswa di kelas (untuk walikelas)
 export const getNilaiByKelasId = (kelasId, filters = {}) => {
   const query = buildGradeQuery();
-  applySemesterFilter(query, "g", filters);
+  applySemesterFilter(
+    query,
+    { referenceAlias: "g", semesterAlias: "sm" },
+    filters
+  );
   return query.where("st.kelasId", kelasId);
 };
 
 // Ambil kehadiran semua siswa di kelas (untuk walikelas)
 export const getKehadiranByKelasId = (kelasId, filters = {}) => {
   const query = buildAttendanceQuery();
-  applySemesterFilter(query, "a", filters);
+  applySemesterFilter(
+    query,
+    { referenceAlias: "a", semesterAlias: "sm" },
+    filters
+  );
   return query.where("st.kelasId", kelasId);
 };
 

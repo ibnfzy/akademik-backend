@@ -42,15 +42,26 @@ const normalizeSemesterFilter = (filters = {}) => {
   return normalized;
 };
 
-const applySemesterFilter = (query, alias, filters = {}) => {
+const applySemesterFilter = (query, aliasOrConfig, filters = {}) => {
   const normalized = normalizeSemesterFilter(filters);
+  const config =
+    typeof aliasOrConfig === "string"
+      ? { referenceAlias: aliasOrConfig, semesterAlias: aliasOrConfig }
+      : aliasOrConfig || {};
+
+  const referenceAlias = config.referenceAlias ?? config.alias ?? null;
+  if (!referenceAlias) {
+    return query;
+  }
+
+  const semesterAlias = config.semesterAlias ?? referenceAlias;
 
   if (normalized.semesterId) {
-    query.where(`${alias}.semesterId`, normalized.semesterId);
+    query.where(`${referenceAlias}.semesterId`, normalized.semesterId);
   } else if (normalized.tahunAjaran && normalized.semester !== undefined) {
     query
-      .where(`${alias}.tahunAjaran`, normalized.tahunAjaran)
-      .where(`${alias}.semester`, normalized.semester);
+      .where(`${semesterAlias}.tahunAjaran`, normalized.tahunAjaran)
+      .where(`${semesterAlias}.semester`, normalized.semester);
   }
 
   return query;
@@ -177,7 +188,11 @@ export const getStudentGrades = async (studentId, filters = {}) => {
     .select("g.*", "s.nama as subjectName", "t.nama as teacherName", ...semesterSelects)
     .where("g.studentId", studentId);
 
-  applySemesterFilter(query, "g", filters);
+  applySemesterFilter(
+    query,
+    { referenceAlias: "g", semesterAlias: "sm" },
+    filters
+  );
   return query;
 };
 
@@ -189,7 +204,11 @@ export const getStudentAttendance = async (studentId, filters = {}) => {
     .select("a.*", "s.nama as subjectName", ...semesterSelects)
     .where("a.studentId", studentId);
 
-  applySemesterFilter(query, "a", filters);
+  applySemesterFilter(
+    query,
+    { referenceAlias: "a", semesterAlias: "sm" },
+    filters
+  );
   return query;
 };
 
