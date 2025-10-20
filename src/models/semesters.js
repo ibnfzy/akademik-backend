@@ -122,3 +122,57 @@ export const resolveSemesterReference = async (
 
   return byPair;
 };
+
+const normalizeDate = (value) => {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  date.setHours(0, 0, 0, 0);
+  return date;
+};
+
+const formatDateForQuery = (value) => {
+  const date = normalizeDate(value);
+  if (!date) return null;
+  return date.toISOString().slice(0, 10);
+};
+
+export const isSemesterActive = (semester, referenceDate = new Date()) => {
+  if (!semester) return false;
+
+  const start = normalizeDate(semester.tanggalMulai);
+  const end = normalizeDate(semester.tanggalSelesai);
+  const reference = normalizeDate(referenceDate);
+
+  if (!start || !end || !reference) {
+    return false;
+  }
+
+  return reference.getTime() >= start.getTime() && reference.getTime() <= end.getTime();
+};
+
+export const getActiveSemester = async (
+  referenceDate = new Date(),
+  client = db
+) => {
+  const dateString = formatDateForQuery(referenceDate);
+
+  if (!dateString) {
+    return null;
+  }
+
+  return client("semesters")
+    .select(semesterColumns)
+    .where("tanggalMulai", "<=", dateString)
+    .andWhere("tanggalSelesai", ">=", dateString)
+    .orderBy("tanggalMulai", "desc")
+    .first();
+};
+
+export const getLatestSemester = (client = db) => {
+  return client("semesters")
+    .select(semesterColumns)
+    .orderBy("tanggalMulai", "desc")
+    .orderBy("tanggalSelesai", "desc")
+    .first();
+};
