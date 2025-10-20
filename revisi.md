@@ -50,6 +50,8 @@ Dokumen ini merangkum perubahan API backend terkait manajemen semester dan menja
 
 ### 3. Walikelas – Panel Kelas & Raport
 - Endpoint `GET /walikelas/:kelasId/kelas/nilai` dan `.../kehadiran` menerima query filter semester sama seperti modul guru dan mengembalikan metadata semester pada setiap baris.
+  - Query yang didukung: `?semesterId=<id>` **atau** `?tahun=<string>&semester=<number>` / `?tahunAjaran=<string>&semesterKe=<number>`.
+  - Backend akan memvalidasi referensi semester; bila ID atau kombinasi tahun+semester tidak ditemukan, response `404 Semester tidak ditemukan` dikembalikan.
 - Endpoint `GET /walikelas/:kelasId/siswa/:studentId/raport` kini menambahkan properti baru pada response:
   ```json
   {
@@ -68,6 +70,7 @@ Dokumen ini merangkum perubahan API backend terkait manajemen semester dan menja
   }
   ```
 - UI raport & rekap kehadiran perlu menampilkan `jumlahHariBelajar` dan metadata semester lainnya (tanggal, catatan) jika tersedia.
+- Saat memanggil endpoint walikelas, selalu kirim `semesterId` yang valid agar backend mengembalikan dataset yang sudah terfilter ke semester terkait.
 
 ### 4. Siswa – Dashboard Nilai, Kehadiran, Raport
 - Endpoint `GET /siswa/:id/nilai` dan `GET /siswa/:id/kehadiran` menerima query filter semester serta mengembalikan atribut semester seperti pada modul guru.
