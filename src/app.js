@@ -9,6 +9,7 @@ import siswaRoutes from "./routes/student.js";
 import adminRoutes from "./routes/admin.js";
 import guruRoutes from "./routes/guru.js";
 import walikelasRoutes from "./routes/walikelas.js";
+import cronRoutes from "./routes/cron.js";
 import {
   getSchoolProfile,
   getAchievements,
@@ -28,6 +29,7 @@ app.use("/siswa", siswaRoutes);
 app.use("/admin", adminRoutes);
 app.use("/guru", guruRoutes);
 app.use("/walikelas", walikelasRoutes);
+app.use("/cron", cronRoutes);
 
 app.get("/school-profile", getSchoolProfile);
 app.get("/achievements", getAchievements);
