@@ -63,14 +63,34 @@ export const getUserById = async (id) => {
 
 // 🔹 Tambah user baru
 export const createUser = async (data) => {
-  const result = await db("users").insert(data);
+  const payload = { ...data };
+
+  if (
+    Object.prototype.hasOwnProperty.call(payload, "password") &&
+    typeof payload.password === "string" &&
+    payload.password.trim() === ""
+  ) {
+    delete payload.password;
+  }
+
+  const result = await db("users").insert(payload);
   const id = result.insertId || result[0]; // cover mysql & knex behavior
   return db("users").where({ id }).first();
 };
 
 // 🔹 Update user
 export const updateUser = async (id, data) => {
-  await db("users").where({ id }).update(data);
+  const payload = { ...data };
+
+  if (
+    Object.prototype.hasOwnProperty.call(payload, "password") &&
+    typeof payload.password === "string" &&
+    payload.password.trim() === ""
+  ) {
+    delete payload.password;
+  }
+
+  await db("users").where({ id }).update(payload);
   return db("users").where({ id }).first();
 };
 
