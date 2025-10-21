@@ -23,7 +23,8 @@ export const getAllUsers = async () => {
       ),
       "st.nisn",
       "t.nip",
-      "u.createdAt"
+      "u.createdAt",
+      "u.password"
     )
     .orderBy("u.createdAt", "desc");
 };
