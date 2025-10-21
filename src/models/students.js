@@ -24,7 +24,11 @@ const normalizeSemesterFilter = (filters = {}) => {
     }
   }
 
-  if (filters.tahunAjaran !== undefined && filters.tahunAjaran !== null && filters.tahunAjaran !== "") {
+  if (
+    filters.tahunAjaran !== undefined &&
+    filters.tahunAjaran !== null &&
+    filters.tahunAjaran !== ""
+  ) {
     normalized.tahunAjaran = filters.tahunAjaran;
   }
 
@@ -156,7 +160,18 @@ export const updateStudent = async (id, data) => {
 
     // Jika ada perubahan di users
     if (data.users) {
-      await trx("users").where({ id }).update(data.users);
+      const userPayload = { ...data.users };
+
+      // Validasi password kosong
+      if (
+        Object.prototype.hasOwnProperty.call(userPayload, "password") &&
+        typeof userPayload.password === "string" &&
+        userPayload.password.trim() === ""
+      ) {
+        delete userPayload.password;
+      }
+
+      await trx("users").where({ id }).update(userPayload);
     }
 
     return student;
@@ -185,7 +200,12 @@ export const getStudentGrades = async (studentId, filters = {}) => {
     .join("subjects as s", "g.subjectId", "s.id")
     .join("teachers as t", "g.teacherId", "t.id")
     .leftJoin("semesters as sm", "g.semesterId", "sm.id")
-    .select("g.*", "s.nama as subjectName", "t.nama as teacherName", ...semesterSelects)
+    .select(
+      "g.*",
+      "s.nama as subjectName",
+      "t.nama as teacherName",
+      ...semesterSelects
+    )
     .where("g.studentId", studentId);
 
   applySemesterFilter(
@@ -231,7 +251,10 @@ export const getRaportById = async (studentId, filters = {}) => {
   if (
     filters &&
     (filters.semesterId ||
-      (filters.tahunAjaran && filters.semester !== undefined && filters.semester !== null && filters.semester !== ""))
+      (filters.tahunAjaran &&
+        filters.semester !== undefined &&
+        filters.semester !== null &&
+        filters.semester !== ""))
   ) {
     semesterMeta = await resolveSemesterReference(
       {
@@ -248,7 +271,9 @@ export const getRaportById = async (studentId, filters = {}) => {
     : filters.tahunAjaran ?? null;
   const semesterNumber = semesterMeta
     ? Number(semesterMeta.semester)
-    : filters.semester !== undefined && filters.semester !== null && filters.semester !== ""
+    : filters.semester !== undefined &&
+      filters.semester !== null &&
+      filters.semester !== ""
     ? Number(filters.semester)
     : null;
 

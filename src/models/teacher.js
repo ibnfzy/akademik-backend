@@ -165,7 +165,18 @@ export const updateTeacher = async (id, data) => {
 
     // Jika ada perubahan di users
     if (data.users) {
-      await trx("users").where({ id }).update(data.users);
+      const userPayload = { ...data.users };
+
+      // Validasi password kosong
+      if (
+        Object.prototype.hasOwnProperty.call(userPayload, "password") &&
+        typeof userPayload.password === "string" &&
+        userPayload.password.trim() === ""
+      ) {
+        delete userPayload.password;
+      }
+
+      await trx("users").where({ id }).update(userPayload);
     }
 
     const user = await trx("users").where({ id }).first();
