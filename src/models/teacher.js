@@ -116,8 +116,6 @@ const applyResolvedSemester = (payload, resolvedSemester) => {
   return {
     ...payload,
     semesterId: resolvedSemester.id,
-    tahunAjaran: resolvedSemester.tahunAjaran,
-    semester: resolvedSemester.semester,
   };
 };
 
@@ -231,17 +229,17 @@ export const getAllGrades = (filters = {}) => {
 
 // Tambah nilai siswa
 export const insertNilai = async (data) => {
-  const { resolvedSemester, ...rest } = data;
+  const payload = applyResolvedSemester({ ...data }, data.resolvedSemester);
 
-  if (!resolvedSemester) {
+  if (!payload.semesterId) {
     const error = new Error("SemesterId wajib diisi");
     error.code = "SEMESTER_REQUIRED";
     throw error;
   }
 
-  return db.transaction(async (trx) => {
-    const payload = applyResolvedSemester(rest, resolvedSemester);
+  delete payload.resolvedSemester;
 
+  return db.transaction(async (trx) => {
     const [id] = await trx("grades").insert(payload);
 
     return fetchGradeById(trx, id);
@@ -251,12 +249,9 @@ export const insertNilai = async (data) => {
 // Update nilai siswa
 export const updateNilai = async (id, data) => {
   return db.transaction(async (trx) => {
-    const { resolvedSemester, ...rest } = data;
-    let payload = { ...rest };
+    const payload = applyResolvedSemester({ ...data }, data.resolvedSemester);
 
-    if (resolvedSemester) {
-      payload = applyResolvedSemester(payload, resolvedSemester);
-    }
+    delete payload.resolvedSemester;
 
     if (Object.keys(payload).length === 0) {
       return fetchGradeById(trx, id);

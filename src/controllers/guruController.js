@@ -182,7 +182,7 @@ export const addNilai = async (req, res) => {
     });
 
     const {
-      semesterId: _semesterId,
+      semesterId: rawSemesterId,
       tahunAjaran: _tahunAjaran,
       semester: _semesterNumber,
       ...restBody
@@ -192,8 +192,14 @@ export const addNilai = async (req, res) => {
       ...restBody,
       teacherId: req.params.id,
       verified: false,
-      resolvedSemester: semester,
+      semesterId: semester?.id ?? rawSemesterId ?? null,
     };
+
+    if (!payload.semesterId) {
+      throw Object.assign(new Error("SemesterId wajib dikirimkan"), {
+        code: "SEMESTER_REQUIRED",
+      });
+    }
 
     const nilai = await Teacher.insertNilai(payload);
     return successResponse(res, nilai, "Nilai berhasil ditambahkan");
@@ -211,7 +217,7 @@ export const updateNilai = async (req, res) => {
     const semester = await resolveSemesterFromPayload(req.body);
 
     const {
-      semesterId: _semesterId,
+      semesterId: rawSemesterId,
       tahunAjaran: _tahunAjaran,
       semester: _semesterNumber,
       ...restBody
@@ -223,7 +229,9 @@ export const updateNilai = async (req, res) => {
     };
 
     if (semester) {
-      payload.resolvedSemester = semester;
+      payload.semesterId = semester.id;
+    } else if (rawSemesterId !== undefined) {
+      payload.semesterId = rawSemesterId;
     }
 
     const nilai = await Teacher.updateNilai(req.params.gradeId, payload);
