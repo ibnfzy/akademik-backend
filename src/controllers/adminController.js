@@ -154,7 +154,35 @@ export const getClasses = async (req, res) => {
 
 export const createClass = async (req, res) => {
   try {
-    const kelasData = await Class.createClass(req.body);
+    const kelasPayload = { ...req.body };
+
+    if (Object.prototype.hasOwnProperty.call(req.body, "walikelasId")) {
+      const walikelasUserId = req.body.walikelasId;
+
+      if (
+        walikelasUserId !== undefined &&
+        walikelasUserId !== null &&
+        walikelasUserId !== ""
+      ) {
+        const walikelas = await Teacher.getTeacherByUserId(walikelasUserId);
+
+        if (!walikelas) {
+          return errorResponse(
+            res,
+            404,
+            "Guru dengan userId tersebut tidak ditemukan"
+          );
+        }
+
+        kelasPayload.walikelasId = walikelas.id;
+      } else {
+        kelasPayload.walikelasId = null;
+      }
+    } else {
+      kelasPayload.walikelasId = null;
+    }
+
+    const kelasData = await Class.createClass(kelasPayload);
     return successResponse(res, kelasData, "Kelas berhasil dibuat");
   } catch (err) {
     return errorResponse(res, 500, err.message);
@@ -163,7 +191,33 @@ export const createClass = async (req, res) => {
 
 export const updateClass = async (req, res) => {
   try {
-    const kelasData = await Class.updateClass(req.params.id, req.body);
+    const kelasPayload = { ...req.body };
+
+    if (Object.prototype.hasOwnProperty.call(req.body, "walikelasId")) {
+      const walikelasUserId = req.body.walikelasId;
+
+      if (
+        walikelasUserId !== undefined &&
+        walikelasUserId !== null &&
+        walikelasUserId !== ""
+      ) {
+        const walikelas = await Teacher.getTeacherByUserId(walikelasUserId);
+
+        if (!walikelas) {
+          return errorResponse(
+            res,
+            404,
+            "Guru dengan userId tersebut tidak ditemukan"
+          );
+        }
+
+        kelasPayload.walikelasId = walikelas.id;
+      } else {
+        kelasPayload.walikelasId = null;
+      }
+    }
+
+    const kelasData = await Class.updateClass(req.params.id, kelasPayload);
     return successResponse(res, kelasData, "Kelas berhasil diperbarui");
   } catch (err) {
     return errorResponse(res, 500, err.message);
