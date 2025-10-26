@@ -28,16 +28,17 @@ export const login = async (req, res) => {
         studentId = student.id;
         nama = student.nama;
       }
-    } else if (role === "walikelas") {
+  } else if (role === "walikelas") {
       const teacher = await db("teachers").where({ userId: user.id }).first();
-      const classes = await db("classes")
-        .where({ walikelasId: teacher.id })
-        .first();
       if (teacher) {
+        const kelas = await db("classes")
+          .where({ walikelasId: teacher.id })
+          .first();
+
         nip = teacher.nip;
         teacherId = teacher.id;
         nama = teacher.nama;
-        kelasId = classes.id;
+        kelasId = kelas ? kelas.id : null;
       }
     } else if (role === "guru") {
       const teacher = await db("teachers").where({ userId: user.id }).first();
