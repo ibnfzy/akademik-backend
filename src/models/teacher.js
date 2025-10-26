@@ -341,6 +341,17 @@ export const getNilaiByKelasId = (kelasId, filters = {}) => {
   return query.where("st.kelasId", kelasId);
 };
 
+export const getNilaiByWalikelasId = (walikelasId, filters = {}) => {
+  const query = buildGradeQuery();
+  query.join("classes as c", "st.kelasId", "c.id");
+  applySemesterFilter(
+    query,
+    { referenceAlias: "g", semesterAlias: "sm" },
+    filters
+  );
+  return query.where("c.walikelasId", walikelasId);
+};
+
 // Ambil kehadiran semua siswa di kelas (untuk walikelas)
 export const getKehadiranByKelasId = (kelasId, filters = {}) => {
   const query = buildAttendanceQuery();
@@ -350,6 +361,17 @@ export const getKehadiranByKelasId = (kelasId, filters = {}) => {
     filters
   );
   return query.where("st.kelasId", kelasId);
+};
+
+export const getKehadiranByWalikelasId = (walikelasId, filters = {}) => {
+  const query = buildAttendanceQuery();
+  query.join("classes as c", "st.kelasId", "c.id");
+  applySemesterFilter(
+    query,
+    { referenceAlias: "a", semesterAlias: "sm" },
+    filters
+  );
+  return query.where("c.walikelasId", walikelasId);
 };
 
 // Verifikasi nilai oleh walikelas

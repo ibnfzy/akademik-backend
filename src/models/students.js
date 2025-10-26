@@ -130,6 +130,31 @@ export const getStudentsByKelasId = async (kelasId) => {
     .where("st.kelasId", kelasId);
 };
 
+export const getStudentsByWalikelasId = async (walikelasId) => {
+  return db("students as st")
+    .join("users as u", "st.userId", "u.id")
+    .join("classes as c", "st.kelasId", "c.id")
+    .select(
+      "st.id",
+      "st.userId",
+      "st.nisn",
+      "st.nama",
+      "st.kelasId",
+      "st.jenisKelamin",
+      "st.tanggalLahir",
+      "st.alamat",
+      "st.nomorHP",
+      "st.namaOrangTua",
+      "st.pekerjaanOrangTua",
+      "st.tahunMasuk",
+      "u.username",
+      "u.email",
+      "u.role",
+      "c.nama as kelasName"
+    )
+    .where("c.walikelasId", walikelasId);
+};
+
 // 🔹 Tambah siswa baru (beserta user account)
 export const insertStudent = async (data) => {
   return db.transaction(async (trx) => {

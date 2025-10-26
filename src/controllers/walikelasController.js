@@ -58,7 +58,7 @@ const buildSemesterFilters = async (query = {}) => {
 export const getSiswaKelas = async (req, res) => {
   try {
     const { id } = req.params;
-    const siswa = await Student.getStudentsByKelasId(id);
+    const siswa = await Student.getStudentsByWalikelasId(id);
     return successResponse(res, siswa);
   } catch (err) {
     return errorResponse(res, 500, err.message);
@@ -70,7 +70,7 @@ export const getNilaiKelas = async (req, res) => {
   try {
     const filters = await buildSemesterFilters(req.query);
     const { id } = req.params;
-    const nilai = await Teacher.getNilaiByKelasId(id, filters);
+    const nilai = await Teacher.getNilaiByWalikelasId(id, filters);
     return successResponse(res, nilai);
   } catch (err) {
     if (err.message === "Semester tidak ditemukan") {
@@ -85,7 +85,7 @@ export const getKehadiranKelas = async (req, res) => {
   try {
     const filters = await buildSemesterFilters(req.query);
     const { id } = req.params;
-    const absensi = await Teacher.getKehadiranByKelasId(id, filters);
+    const absensi = await Teacher.getKehadiranByWalikelasId(id, filters);
     return successResponse(res, absensi);
   } catch (err) {
     if (err.message === "Semester tidak ditemukan") {
