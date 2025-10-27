@@ -194,6 +194,10 @@ export const deleteTeacher = async (id) => {
   return await db("users").where({ id }).del();
 };
 
+export const getTeacherById = (id) => {
+  return db("teachers").where({ id }).first();
+};
+
 // 🔹 Ambil data guru by userId
 export const getTeacherByUserId = (userId) => {
   return db("teachers").where({ userId }).first();
