@@ -9,8 +9,7 @@ const scheduleSelects = [
   "jp.hari",
   "jp.jamMulai",
   "jp.jamSelesai",
-  "jp.ruang",
-  "jp.keterangan",
+  "jp.ruangan",
   "jp.createdAt",
   "jp.updatedAt",
   "c.nama as kelasNama",
@@ -83,7 +82,8 @@ const pickSchedulePayload = (data = {}) => {
   if (data.jamMulai !== undefined) payload.jamMulai = data.jamMulai;
   if (data.jamSelesai !== undefined) payload.jamSelesai = data.jamSelesai;
   if (data.ruang !== undefined) payload.ruang = data.ruang ?? null;
-  if (data.keterangan !== undefined) payload.keterangan = data.keterangan ?? null;
+  if (data.keterangan !== undefined)
+    payload.keterangan = data.keterangan ?? null;
 
   return payload;
 };
@@ -129,7 +129,12 @@ const isTimeRangeOverlapping = (startA, endA, startB, endB) => {
   return aStart < bEnd && bStart < aEnd;
 };
 
-const fetchConflictsForField = async (payload, field, value, { excludeId } = {}) => {
+const fetchConflictsForField = async (
+  payload,
+  field,
+  value,
+  { excludeId } = {}
+) => {
   const query = buildScheduleQuery()
     .where("jp.hari", payload.hari)
     .andWhere(`jp.${field}`, value);
@@ -224,4 +229,3 @@ export const __testUtils = {
   parseTimeToMinutes,
   isTimeRangeOverlapping,
 };
-
