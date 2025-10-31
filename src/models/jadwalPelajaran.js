@@ -2,9 +2,7 @@ import db from "../config/db.js";
 
 const scheduleSelects = [
   "jp.id",
-  "jp.kelasId",
-  "jp.subjectId",
-  "jp.teacherId",
+  "jp.teacherSubjectId",
   "jp.semesterId",
   "jp.hari",
   "jp.jamMulai",
@@ -12,6 +10,9 @@ const scheduleSelects = [
   "jp.ruangan",
   "jp.createdAt",
   "jp.updatedAt",
+  "ts.kelasId as kelasId",
+  "ts.subjectId as subjectId",
+  "ts.teacherId as teacherId",
   "c.nama as kelasNama",
   "c.tingkat as kelasTingkat",
   "c.jurusan as kelasJurusan",
@@ -26,9 +27,10 @@ const scheduleSelects = [
 
 const buildScheduleQuery = (client = db) => {
   return client("jadwal_pelajaran as jp")
-    .leftJoin("classes as c", "jp.kelasId", "c.id")
-    .leftJoin("subjects as s", "jp.subjectId", "s.id")
-    .leftJoin("teachers as t", "jp.teacherId", "t.id")
+    .leftJoin("teacher_subjects as ts", "jp.teacherSubjectId", "ts.id")
+    .leftJoin("classes as c", "ts.kelasId", "c.id")
+    .leftJoin("subjects as s", "ts.subjectId", "s.id")
+    .leftJoin("teachers as t", "ts.teacherId", "t.id")
     .leftJoin("semesters as sm", "jp.semesterId", "sm.id")
     .select(scheduleSelects);
 };
@@ -47,13 +49,14 @@ const applyScheduleFilters = (query, filters = {}) => {
   const teacherId = normalizeNumber(filters.teacherId);
   const semesterId = normalizeNumber(filters.semesterId);
   const walikelasId = normalizeNumber(filters.walikelasId);
+  const teacherSubjectId = normalizeNumber(filters.teacherSubjectId);
 
   if (kelasId !== null) {
-    query.where("jp.kelasId", kelasId);
+    query.where("ts.kelasId", kelasId);
   }
 
   if (teacherId !== null) {
-    query.where("jp.teacherId", teacherId);
+    query.where("ts.teacherId", teacherId);
   }
 
   if (semesterId !== null) {
@@ -62,6 +65,10 @@ const applyScheduleFilters = (query, filters = {}) => {
 
   if (filters.hari) {
     query.where("jp.hari", filters.hari);
+  }
+
+  if (teacherSubjectId !== null) {
+    query.where("jp.teacherSubjectId", teacherSubjectId);
   }
 
   if (walikelasId !== null) {
@@ -74,9 +81,8 @@ const applyScheduleFilters = (query, filters = {}) => {
 const pickSchedulePayload = (data = {}) => {
   const payload = {};
 
-  if (data.kelasId !== undefined) payload.kelasId = data.kelasId;
-  if (data.subjectId !== undefined) payload.subjectId = data.subjectId;
-  if (data.teacherId !== undefined) payload.teacherId = data.teacherId;
+  if (data.teacherSubjectId !== undefined)
+    payload.teacherSubjectId = data.teacherSubjectId;
   if (data.semesterId !== undefined) payload.semesterId = data.semesterId;
   if (data.hari !== undefined) payload.hari = data.hari;
   if (data.jamMulai !== undefined) payload.jamMulai = data.jamMulai;
@@ -137,7 +143,7 @@ const fetchConflictsForField = async (
 ) => {
   const query = buildScheduleQuery()
     .where("jp.hari", payload.hari)
-    .andWhere(`jp.${field}`, value);
+    .andWhere(field, value);
 
   if (excludeId !== undefined && excludeId !== null) {
     query.whereNot("jp.id", excludeId);
@@ -195,7 +201,7 @@ export const findConflictingSchedules = async (payload, options = {}) => {
   if (payload.kelasId !== undefined && payload.kelasId !== null) {
     const kelasConflicts = await fetchConflictsForField(
       payload,
-      "kelasId",
+      "ts.kelasId",
       payload.kelasId,
       options
     );
@@ -210,7 +216,7 @@ export const findConflictingSchedules = async (payload, options = {}) => {
   if (payload.teacherId !== undefined && payload.teacherId !== null) {
     const teacherConflicts = await fetchConflictsForField(
       payload,
-      "teacherId",
+      "ts.teacherId",
       payload.teacherId,
       options
     );
@@ -218,6 +224,24 @@ export const findConflictingSchedules = async (payload, options = {}) => {
       if (!seenIds.has(conflict.id)) {
         seenIds.add(conflict.id);
         conflicts.push({ ...conflict, conflictScope: "teacher" });
+      }
+    }
+  }
+
+  if (
+    payload.teacherSubjectId !== undefined &&
+    payload.teacherSubjectId !== null
+  ) {
+    const teacherSubjectConflicts = await fetchConflictsForField(
+      payload,
+      "jp.teacherSubjectId",
+      payload.teacherSubjectId,
+      options
+    );
+    for (const conflict of teacherSubjectConflicts) {
+      if (!seenIds.has(conflict.id)) {
+        seenIds.add(conflict.id);
+        conflicts.push({ ...conflict, conflictScope: "teacherSubject" });
       }
     }
   }
