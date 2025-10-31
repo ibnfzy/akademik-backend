@@ -1,4 +1,5 @@
 import * as Teacher from "../models/teacher.js";
+import * as Schedule from "../models/jadwalPelajaran.js";
 import {
   resolveSemesterReference,
   getActiveSemester,
@@ -21,6 +22,30 @@ const buildSemesterFilters = (query = {}) => {
 
   if (query.semester !== undefined && query.semester !== null && query.semester !== "") {
     filters.semester = query.semester;
+  }
+
+  return filters;
+};
+
+const buildScheduleFilters = (query = {}) => {
+  const filters = {};
+
+  if (query.semesterId !== undefined && query.semesterId !== null && query.semesterId !== "") {
+    const parsedSemesterId = Number(query.semesterId);
+    if (!Number.isNaN(parsedSemesterId)) {
+      filters.semesterId = parsedSemesterId;
+    }
+  }
+
+  if (query.kelasId !== undefined && query.kelasId !== null && query.kelasId !== "") {
+    const parsedKelasId = Number(query.kelasId);
+    if (!Number.isNaN(parsedKelasId)) {
+      filters.kelasId = parsedKelasId;
+    }
+  }
+
+  if (query.hari) {
+    filters.hari = query.hari;
   }
 
   return filters;
@@ -147,6 +172,23 @@ export const getMataPelajaran = async (req, res) => {
     }));
 
     return successResponse(res, formatted);
+  } catch (err) {
+    return errorResponse(res, 500, err.message);
+  }
+};
+
+export const getTeachingSchedules = async (req, res) => {
+  try {
+    const teacherId = Number(req.params.id);
+    if (Number.isNaN(teacherId)) {
+      return errorResponse(res, 400, "ID guru tidak valid");
+    }
+
+    const filters = buildScheduleFilters(req.query);
+    filters.teacherId = teacherId;
+
+    const schedules = await Schedule.getSchedules(filters);
+    return successResponse(res, schedules);
   } catch (err) {
     return errorResponse(res, 500, err.message);
   }

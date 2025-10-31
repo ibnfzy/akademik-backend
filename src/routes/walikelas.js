@@ -9,13 +9,18 @@ import {
   updateSiswaKelas,
   deleteSiswaKelas,
   getRaportSiswa,
+  getWalikelasSchedules,
 } from "../controllers/walikelasController.js";
-import { authenticate } from "../middlewares/auth.js";
+import { authenticate, authorize } from "../middlewares/auth.js";
 
 const router = express.Router();
 
-// Semua route walikelas butuh autentikasi
+// Semua route walikelas butuh autentikasi dan role walikelas
 router.use(authenticate);
+router.use(authorize("walikelas"));
+
+// Jadwal kelas
+router.get("/:id/jadwal", getWalikelasSchedules);
 
 // Siswa dalam kelas
 router.get("/:id/kelas/siswa", getSiswaKelas);

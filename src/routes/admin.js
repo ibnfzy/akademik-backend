@@ -61,14 +61,21 @@ import {
   // Settings
   getSemesterEnforcementSetting,
   updateSemesterEnforcementSetting,
+  // Schedules
+  getSchedules,
+  getScheduleDetail,
+  createSchedule,
+  updateSchedule,
+  deleteSchedule,
 } from "../controllers/adminController.js";
 
-import { authenticate } from "../middlewares/auth.js";
+import { authenticate, authorize } from "../middlewares/auth.js";
 
 const router = express.Router();
 
 // Semua route admin dilindungi & hanya role admin
 router.use(authenticate);
+router.use(authorize("admin"));
 
 // ==========================
 // User Management
@@ -153,5 +160,14 @@ router.delete("/semesters/:id", deleteSemester);
 // ==========================
 router.get("/settings/semester-enforcement", getSemesterEnforcementSetting);
 router.put("/settings/semester-enforcement", updateSemesterEnforcementSetting);
+
+// ==========================
+// Schedule Management
+// ==========================
+router.get("/schedules", getSchedules);
+router.get("/schedules/:id", getScheduleDetail);
+router.post("/schedules", createSchedule);
+router.put("/schedules/:id", updateSchedule);
+router.delete("/schedules/:id", deleteSchedule);
 
 export default router;

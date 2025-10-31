@@ -1,5 +1,6 @@
 import * as Teacher from "../models/teacher.js";
 import * as Student from "../models/students.js";
+import * as Schedule from "../models/jadwalPelajaran.js";
 import { resolveSemesterReference } from "../models/semesters.js";
 import { successResponse, errorResponse } from "../utils/response.js";
 
@@ -87,6 +88,47 @@ export const getKehadiranKelas = async (req, res) => {
     const { id } = req.params;
     const absensi = await Teacher.getKehadiranByWalikelasId(id, filters);
     return successResponse(res, absensi);
+  } catch (err) {
+    if (err.message === "Semester tidak ditemukan") {
+      return errorResponse(res, 404, err.message);
+    }
+    return errorResponse(res, 500, err.message);
+  }
+};
+
+export const getWalikelasSchedules = async (req, res) => {
+  try {
+    const walikelasId = Number(req.params.id);
+    if (Number.isNaN(walikelasId)) {
+      return errorResponse(res, 400, "ID walikelas tidak valid");
+    }
+
+    const semesterFilters = await buildSemesterFilters(req.query);
+    const filters = {};
+
+    if (semesterFilters.semesterId) {
+      filters.semesterId = semesterFilters.semesterId;
+    }
+
+    if (
+      req.query.kelasId !== undefined &&
+      req.query.kelasId !== null &&
+      req.query.kelasId !== ""
+    ) {
+      const parsedKelasId = Number(req.query.kelasId);
+      if (!Number.isNaN(parsedKelasId)) {
+        filters.kelasId = parsedKelasId;
+      }
+    }
+
+    if (req.query.hari) {
+      filters.hari = req.query.hari;
+    }
+
+    filters.walikelasId = walikelasId;
+
+    const schedules = await Schedule.getSchedules(filters);
+    return successResponse(res, schedules);
   } catch (err) {
     if (err.message === "Semester tidak ditemukan") {
       return errorResponse(res, 404, err.message);
