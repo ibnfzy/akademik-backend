@@ -11,11 +11,15 @@ import * as Program from "../models/program.js";
 import * as RegistrationLink from "../models/registrationLink.js";
 import * as Semester from "../models/semesters.js";
 import * as Settings from "../models/settings.js";
+import * as Schedule from "../models/jadwalPelajaran.js";
 
 import { successResponse, errorResponse } from "../utils/response.js";
 
 let activeTeacherModel = Teacher;
 let activeClassModel = Class;
+let activeSubjectModel = Subject;
+let activeSemesterModel = Semester;
+let activeScheduleModel = Schedule;
 
 // Helper functions untuk pengujian untuk mengganti dependensi model.
 export const __setClassDependencies = (overrides = {}) => {
@@ -26,6 +30,81 @@ export const __setClassDependencies = (overrides = {}) => {
 export const __resetClassDependencies = () => {
   activeTeacherModel = Teacher;
   activeClassModel = Class;
+};
+
+export const __setScheduleDependencies = (overrides = {}) => {
+  if (overrides.subjectModel) {
+    activeSubjectModel = overrides.subjectModel;
+  }
+
+  if (overrides.semesterModel) {
+    activeSemesterModel = overrides.semesterModel;
+  }
+
+  if (overrides.scheduleModel) {
+    activeScheduleModel = overrides.scheduleModel;
+  }
+};
+
+export const __resetScheduleDependencies = () => {
+  activeSubjectModel = Subject;
+  activeSemesterModel = Semester;
+  activeScheduleModel = Schedule;
+};
+
+const parseNumericId = (value) => {
+  if (value === undefined || value === null || value === "") {
+    return null;
+  }
+
+  const parsed = Number(value);
+  return Number.isNaN(parsed) ? null : parsed;
+};
+
+const toMinutes = (timeString) => {
+  if (typeof timeString !== "string") {
+    return null;
+  }
+
+  const parts = timeString.split(":");
+  if (parts.length < 2) {
+    return null;
+  }
+
+  const hours = Number(parts[0]);
+  const minutes = Number(parts[1]);
+
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) {
+    return null;
+  }
+
+  return hours * 60 + minutes;
+};
+
+const buildScheduleFilters = (query = {}) => {
+  const filters = {};
+
+  const kelasId = parseNumericId(query.kelasId);
+  if (kelasId !== null) filters.kelasId = kelasId;
+
+  const teacherId = parseNumericId(query.teacherId);
+  if (teacherId !== null) filters.teacherId = teacherId;
+
+  const semesterId = parseNumericId(query.semesterId);
+  if (semesterId !== null) filters.semesterId = semesterId;
+
+  if (query.hari) {
+    filters.hari = query.hari;
+  }
+
+  if (query.walikelasId !== undefined) {
+    const walikelasId = parseNumericId(query.walikelasId);
+    if (walikelasId !== null) {
+      filters.walikelasId = walikelasId;
+    }
+  }
+
+  return filters;
 };
 
 //
@@ -536,6 +615,289 @@ export const updateSemesterEnforcementSetting = async (req, res) => {
       { mode: setting.value },
       "Pengaturan mode semester berhasil diperbarui"
     );
+  } catch (err) {
+    return errorResponse(res, 500, err.message);
+  }
+};
+
+//
+// SCHEDULES
+//
+const validateScheduleTimeRange = (jamMulai, jamSelesai) => {
+  const start = toMinutes(jamMulai);
+  const end = toMinutes(jamSelesai);
+
+  if (start === null || end === null) {
+    return {
+      valid: false,
+      message: "Format jamMulai atau jamSelesai tidak valid. Gunakan format HH:MM.",
+    };
+  }
+
+  if (start >= end) {
+    return {
+      valid: false,
+      message: "jamMulai harus lebih kecil daripada jamSelesai",
+    };
+  }
+
+  return { valid: true };
+};
+
+export const getSchedules = async (req, res) => {
+  try {
+    const schedules = await activeScheduleModel.getSchedules(
+      buildScheduleFilters(req.query)
+    );
+    return successResponse(res, schedules, "Daftar jadwal berhasil diambil");
+  } catch (err) {
+    return errorResponse(res, 500, err.message);
+  }
+};
+
+export const getScheduleDetail = async (req, res) => {
+  try {
+    const scheduleId = parseNumericId(req.params.id);
+    if (scheduleId === null) {
+      return errorResponse(res, 400, "ID jadwal tidak valid");
+    }
+
+    const schedule = await activeScheduleModel.getScheduleById(scheduleId);
+    if (!schedule) {
+      return errorResponse(res, 404, "Jadwal tidak ditemukan");
+    }
+
+    return successResponse(res, schedule, "Detail jadwal berhasil diambil");
+  } catch (err) {
+    return errorResponse(res, 500, err.message);
+  }
+};
+
+const validateScheduleReferences = async (
+  { kelasId, subjectId, teacherId, semesterId },
+  res
+) => {
+  const [kelas, subject, teacher, semester] = await Promise.all([
+    activeClassModel.getClassById(kelasId),
+    activeSubjectModel.getSubjectById(subjectId),
+    activeTeacherModel.getTeacherById(teacherId),
+    activeSemesterModel.getSemesterById(semesterId),
+  ]);
+
+  if (!kelas) {
+    errorResponse(res, 404, "Kelas tidak ditemukan");
+    return false;
+  }
+
+  if (!subject) {
+    errorResponse(res, 404, "Mata pelajaran tidak ditemukan");
+    return false;
+  }
+
+  if (!teacher) {
+    errorResponse(res, 404, "Guru tidak ditemukan");
+    return false;
+  }
+
+  if (!semester) {
+    errorResponse(res, 404, "Semester tidak ditemukan");
+    return false;
+  }
+
+  return true;
+};
+
+export const createSchedule = async (req, res) => {
+  try {
+    const requiredFields = [
+      "kelasId",
+      "subjectId",
+      "teacherId",
+      "semesterId",
+      "hari",
+      "jamMulai",
+      "jamSelesai",
+    ];
+
+    const missingField = requiredFields.find(
+      (field) => req.body[field] === undefined || req.body[field] === ""
+    );
+
+    if (missingField) {
+      return errorResponse(
+        res,
+        400,
+        "kelasId, subjectId, teacherId, semesterId, hari, jamMulai, dan jamSelesai wajib diisi"
+      );
+    }
+
+    const kelasId = parseNumericId(req.body.kelasId);
+    const subjectId = parseNumericId(req.body.subjectId);
+    const teacherId = parseNumericId(req.body.teacherId);
+    const semesterId = parseNumericId(req.body.semesterId);
+
+    if (
+      kelasId === null ||
+      subjectId === null ||
+      teacherId === null ||
+      semesterId === null
+    ) {
+      return errorResponse(res, 400, "ID referensi harus berupa angka yang valid");
+    }
+
+    const timeValidation = validateScheduleTimeRange(
+      req.body.jamMulai,
+      req.body.jamSelesai
+    );
+
+    if (!timeValidation.valid) {
+      return errorResponse(res, 400, timeValidation.message);
+    }
+
+    const referencesValid = await validateScheduleReferences(
+      { kelasId, subjectId, teacherId, semesterId },
+      res
+    );
+
+    if (!referencesValid) {
+      return;
+    }
+
+    const conflicts = await activeScheduleModel.findConflictingSchedules({
+      kelasId,
+      teacherId,
+      hari: req.body.hari,
+      jamMulai: req.body.jamMulai,
+      jamSelesai: req.body.jamSelesai,
+    });
+
+    if (conflicts.length > 0) {
+      return errorResponse(
+        res,
+        409,
+        "Jadwal bertabrakan dengan jadwal lain",
+        conflicts
+      );
+    }
+
+    const schedule = await activeScheduleModel.createSchedule({
+      kelasId,
+      subjectId,
+      teacherId,
+      semesterId,
+      hari: req.body.hari,
+      jamMulai: req.body.jamMulai,
+      jamSelesai: req.body.jamSelesai,
+      ruang: req.body.ruang ?? null,
+      keterangan: req.body.keterangan ?? null,
+    });
+
+    return successResponse(res, schedule, "Jadwal berhasil dibuat");
+  } catch (err) {
+    return errorResponse(res, 500, err.message);
+  }
+};
+
+export const updateSchedule = async (req, res) => {
+  try {
+    const scheduleId = parseNumericId(req.params.id);
+    if (scheduleId === null) {
+      return errorResponse(res, 400, "ID jadwal tidak valid");
+    }
+
+    const existing = await activeScheduleModel.getScheduleById(scheduleId);
+    if (!existing) {
+      return errorResponse(res, 404, "Jadwal tidak ditemukan");
+    }
+
+    const kelasId =
+      parseNumericId(req.body.kelasId) ?? parseNumericId(existing.kelasId);
+    const subjectId =
+      parseNumericId(req.body.subjectId) ?? parseNumericId(existing.subjectId);
+    const teacherId =
+      parseNumericId(req.body.teacherId) ?? parseNumericId(existing.teacherId);
+    const semesterId =
+      parseNumericId(req.body.semesterId) ?? parseNumericId(existing.semesterId);
+
+    if (
+      kelasId === null ||
+      subjectId === null ||
+      teacherId === null ||
+      semesterId === null
+    ) {
+      return errorResponse(res, 400, "ID referensi harus berupa angka yang valid");
+    }
+
+    const hari = req.body.hari ?? existing.hari;
+    const jamMulai = req.body.jamMulai ?? existing.jamMulai;
+    const jamSelesai = req.body.jamSelesai ?? existing.jamSelesai;
+
+    const timeValidation = validateScheduleTimeRange(jamMulai, jamSelesai);
+    if (!timeValidation.valid) {
+      return errorResponse(res, 400, timeValidation.message);
+    }
+
+    const referencesValid = await validateScheduleReferences(
+      { kelasId, subjectId, teacherId, semesterId },
+      res
+    );
+
+    if (!referencesValid) {
+      return;
+    }
+
+    const conflicts = await activeScheduleModel.findConflictingSchedules(
+      {
+        kelasId,
+        teacherId,
+        hari,
+        jamMulai,
+        jamSelesai,
+      },
+      { excludeId: scheduleId }
+    );
+
+    if (conflicts.length > 0) {
+      return errorResponse(
+        res,
+        409,
+        "Jadwal bertabrakan dengan jadwal lain",
+        conflicts
+      );
+    }
+
+    const schedule = await activeScheduleModel.updateSchedule(scheduleId, {
+      kelasId,
+      subjectId,
+      teacherId,
+      semesterId,
+      hari,
+      jamMulai,
+      jamSelesai,
+      ruang: req.body.ruang ?? existing.ruang ?? null,
+      keterangan: req.body.keterangan ?? existing.keterangan ?? null,
+    });
+
+    return successResponse(res, schedule, "Jadwal berhasil diperbarui");
+  } catch (err) {
+    return errorResponse(res, 500, err.message);
+  }
+};
+
+export const deleteSchedule = async (req, res) => {
+  try {
+    const scheduleId = parseNumericId(req.params.id);
+    if (scheduleId === null) {
+      return errorResponse(res, 400, "ID jadwal tidak valid");
+    }
+
+    const existing = await activeScheduleModel.getScheduleById(scheduleId);
+    if (!existing) {
+      return errorResponse(res, 404, "Jadwal tidak ditemukan");
+    }
+
+    await activeScheduleModel.deleteSchedule(scheduleId);
+    return successResponse(res, {}, "Jadwal berhasil dihapus");
   } catch (err) {
     return errorResponse(res, 500, err.message);
   }

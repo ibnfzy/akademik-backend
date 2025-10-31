@@ -10,13 +10,18 @@ import {
   getAllAttendance,
   updateKehadiran,
   deleteKehadiran,
+  getTeachingSchedules,
 } from "../controllers/guruController.js";
-import { authenticate } from "../middlewares/auth.js";
+import { authenticate, authorize } from "../middlewares/auth.js";
 
 const router = express.Router();
 
-// semua route guru butuh autentikasi
+// semua route guru butuh autentikasi dan role guru
 router.use(authenticate);
+router.use(authorize("guru"));
+
+// Jadwal mengajar
+router.get("/:id/jadwal", getTeachingSchedules);
 
 // Mata Pelajaran
 router.get("/:id/matapelajaran", getMataPelajaran);
