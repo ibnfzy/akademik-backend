@@ -1,9 +1,15 @@
-import {
-  getStudentGrades,
-  getStudentAttendance,
-  getRaportById,
-} from "../models/students.js";
+import * as StudentModel from "../models/students.js";
 import { successResponse, errorResponse } from "../utils/response.js";
+
+let activeStudentModel = StudentModel;
+
+export const __setStudentControllerDependencies = (overrides = {}) => {
+  activeStudentModel = { ...StudentModel, ...overrides };
+};
+
+export const __resetStudentControllerDependencies = () => {
+  activeStudentModel = StudentModel;
+};
 
 const buildSemesterFilters = (query = {}) => {
   const filters = {};
@@ -30,7 +36,7 @@ export const getNilai = async (req, res) => {
   const filters = buildSemesterFilters(req.query);
 
   try {
-    const grades = await getStudentGrades(id, filters);
+    const grades = await activeStudentModel.getStudentGrades(id, filters);
     return successResponse(res, grades);
   } catch (err) {
     return errorResponse(res, 500, err.message, [], "SERVER_ERROR");
@@ -43,7 +49,10 @@ export const getKehadiran = async (req, res) => {
   const filters = buildSemesterFilters(req.query);
 
   try {
-    const attendance = await getStudentAttendance(id, filters);
+    const attendance = await activeStudentModel.getStudentAttendance(
+      id,
+      filters
+    );
     return successResponse(res, attendance);
   } catch (err) {
     return errorResponse(res, 500, err.message, [], "SERVER_ERROR");
@@ -56,7 +65,7 @@ export const getRaport = async (req, res) => {
   const filters = buildSemesterFilters(req.query);
 
   try {
-    const raportData = await getRaportById(id, filters);
+    const raportData = await activeStudentModel.getRaportById(id, filters);
     if (!raportData) {
       return errorResponse(res, 404, "Siswa tidak ditemukan");
     }
@@ -64,6 +73,7 @@ export const getRaport = async (req, res) => {
     return successResponse(res, {
       student: {
         id: raportData.student.id,
+        nis: raportData.student.nis,
         nisn: raportData.student.nisn,
         nama: raportData.student.nama,
         kelasId: raportData.student.kelasId,

@@ -17,10 +17,11 @@ export const getAllUsers = async () => {
       "u.role",
       "u.email",
       db.raw(
-        `CASE 
+        `CASE
           WHEN u.role = 'siswa' THEN st.kelasId
           ELSE NULL END as "kelasId"`
       ),
+      "st.nis",
       "st.nisn",
       "t.nip",
       "u.createdAt",
@@ -50,10 +51,11 @@ export const getUserById = async (id) => {
       "u.role",
       "u.email",
       db.raw(
-        `CASE 
+        `CASE
           WHEN u.role = 'siswa' THEN st.kelasId
           ELSE NULL END as "kelasId"`
       ),
+      "st.nis",
       "st.nisn",
       "t.nip",
       "u.createdAt"

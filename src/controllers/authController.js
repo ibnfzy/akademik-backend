@@ -2,11 +2,23 @@ import db from "../config/db.js";
 import jwt from "jsonwebtoken";
 import { successResponse, errorResponse } from "../utils/response.js";
 
+let activeDb = db;
+
+export const __setAuthDependencies = (overrides = {}) => {
+  activeDb = overrides.db ?? db;
+};
+
+export const __resetAuthDependencies = () => {
+  activeDb = db;
+};
+
 export const login = async (req, res) => {
   const { username, password, role } = req.body;
   try {
     // cari user sesuai username, password, role
-    const user = await db("users").where({ username, password, role }).first();
+    const user = await activeDb("users")
+      .where({ username, password, role })
+      .first();
 
     if (!user) {
       return errorResponse(res, 401, "Invalid credentials", [], "AUTH_INVALID");
@@ -14,6 +26,7 @@ export const login = async (req, res) => {
 
     let kelasId = null;
     let mataPelajaran = [];
+    let nis = null;
     let nisn = null;
     let nip = null;
     let studentId = null;
@@ -21,17 +34,22 @@ export const login = async (req, res) => {
     let nama = user.username;
 
     if (role === "siswa") {
-      const student = await db("students").where({ userId: user.id }).first();
+      const student = await activeDb("students")
+        .where({ userId: user.id })
+        .first();
       if (student) {
         kelasId = student.kelasId;
+        nis = student.nis ?? null;
         nisn = student.nisn;
         studentId = student.id;
         nama = student.nama;
       }
-  } else if (role === "walikelas") {
-      const teacher = await db("teachers").where({ userId: user.id }).first();
+    } else if (role === "walikelas") {
+      const teacher = await activeDb("teachers")
+        .where({ userId: user.id })
+        .first();
       if (teacher) {
-        const kelas = await db("classes")
+        const kelas = await activeDb("classes")
           .where({ walikelasId: teacher.id })
           .first();
 
@@ -41,13 +59,15 @@ export const login = async (req, res) => {
         kelasId = kelas ? kelas.id : null;
       }
     } else if (role === "guru") {
-      const teacher = await db("teachers").where({ userId: user.id }).first();
+      const teacher = await activeDb("teachers")
+        .where({ userId: user.id })
+        .first();
       if (teacher) {
         nip = teacher.nip;
         teacherId = teacher.id;
         nama = teacher.nama;
 
-        const subjects = await db("teacher_subjects as ts")
+        const subjects = await activeDb("teacher_subjects as ts")
           .join("subjects as s", "ts.subjectId", "s.id")
           .where("ts.teacherId", teacher.id)
           .select("s.id", "s.nama");
@@ -78,6 +98,7 @@ export const login = async (req, res) => {
         studentId,
         teacherId,
         mataPelajaran,
+        nis,
         nisn,
         nip,
         createdAt: user.createdAt,

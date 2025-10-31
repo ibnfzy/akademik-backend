@@ -88,6 +88,7 @@ export const getAllStudents = async () => {
     .select(
       "st.id",
       "st.userId",
+      "st.nis",
       "st.nisn",
       "st.nama",
       "st.kelasId",
@@ -113,6 +114,7 @@ export const getStudentsByKelasId = async (kelasId) => {
     .select(
       "st.id",
       "st.userId",
+      "st.nis",
       "st.nisn",
       "st.nama",
       "st.kelasId",
@@ -137,6 +139,7 @@ export const getStudentsByWalikelasId = async (walikelasId) => {
     .select(
       "st.id",
       "st.userId",
+      "st.nis",
       "st.nisn",
       "st.nama",
       "st.kelasId",
@@ -164,8 +167,20 @@ export const insertStudent = async (data) => {
     const user = await trx("users").where({ id: userId }).first();
 
     // Insert ke tabel students
+    const studentPayload = {
+      ...(data.students || {}),
+    };
+
+    if (
+      Object.prototype.hasOwnProperty.call(data, "nis") &&
+      data.nis !== undefined &&
+      data.nis !== null
+    ) {
+      studentPayload.nis = data.nis;
+    }
+
     const [studentId] = await trx("students").insert({
-      ...data.students,
+      ...studentPayload,
       userId,
     });
 
@@ -179,7 +194,19 @@ export const insertStudent = async (data) => {
 export const updateStudent = async (id, data) => {
   return db.transaction(async (trx) => {
     // Update tabel students
-    await trx("students").where({ userId: id }).update(data.students);
+    const studentPayload = {
+      ...(data.students || {}),
+    };
+
+    if (
+      Object.prototype.hasOwnProperty.call(data, "nis") &&
+      data.nis !== undefined &&
+      data.nis !== null
+    ) {
+      studentPayload.nis = data.nis;
+    }
+
+    await trx("students").where({ userId: id }).update(studentPayload);
 
     const student = await trx("students").where({ userId: id }).first();
 
