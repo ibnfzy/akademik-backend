@@ -29,7 +29,6 @@ afterEach(() => {
 test("createClass menyimpan walikelasId berdasarkan teacherId", async () => {
   const req = {
     body: {
-      nama: "X IPA 1",
       tingkat: "10",
       jurusan: "IPA",
       walikelasId: 5,
@@ -57,7 +56,6 @@ test("createClass menyimpan walikelasId berdasarkan teacherId", async () => {
   await createClass(req, res);
 
   assert.deepEqual(receivedPayload, {
-    nama: "X IPA 1",
     tingkat: "10",
     jurusan: "IPA",
     walikelasId: 5,
@@ -69,7 +67,6 @@ test("createClass menyimpan walikelasId berdasarkan teacherId", async () => {
 test("createClass mengembalikan 404 ketika teacherId tidak ditemukan", async () => {
   const req = {
     body: {
-      nama: "X IPA 1",
       tingkat: "10",
       jurusan: "IPA",
       walikelasId: 99,
@@ -105,7 +102,6 @@ test("updateClass memperbarui walikelasId menggunakan teacherId", async () => {
   const req = {
     params: { id: "12" },
     body: {
-      nama: "X IPA 1",
       tingkat: "10",
       jurusan: "IPA",
       walikelasId: 8,
@@ -136,7 +132,6 @@ test("updateClass memperbarui walikelasId menggunakan teacherId", async () => {
 
   assert.equal(receivedId, "12");
   assert.deepEqual(receivedPayload, {
-    nama: "X IPA 1",
     tingkat: "10",
     jurusan: "IPA",
     walikelasId: 8,
