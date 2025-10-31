@@ -117,9 +117,52 @@ const buildScheduleFilters = (query = {}) => {
   return filters;
 };
 
+const buildTeacherSubjectClassFilters = (query = {}) => {
+  const filters = {};
+
+  const teacherId = parseNumericId(query.teacherId);
+  if (teacherId !== null) {
+    filters.teacherId = teacherId;
+  }
+
+  const subjectId = parseNumericId(query.subjectId);
+  if (subjectId !== null) {
+    filters.subjectId = subjectId;
+  }
+
+  const kelasId = parseNumericId(query.kelasId);
+  if (kelasId !== null) {
+    filters.kelasId = kelasId;
+  }
+
+  return filters;
+};
+
 //
 // USERS
 //
+
+export const getTeacherSubjectClasses = async (req, res) => {
+  try {
+    const filters = buildTeacherSubjectClassFilters(req.query ?? {});
+
+    const fetchRelationsFn =
+      activeTeacherSubjectHelper.getTeacherSubjectClassRelations ??
+      activeTeacherSubjectHelper.getTeacherSubjectClasses ??
+      (async () => []);
+
+    const relations = await fetchRelationsFn(filters);
+
+    return successResponse(
+      res,
+      { relations },
+      "Relasi guru, mata pelajaran, dan kelas berhasil diambil"
+    );
+  } catch (err) {
+    return errorResponse(res, 500, err.message);
+  }
+};
+
 export const getUsers = async (req, res) => {
   try {
     const users = await User.getAllUsers();
