@@ -5,8 +5,6 @@ import {
   updateSchedule,
   __setScheduleDependencies,
   __resetScheduleDependencies,
-  __setClassDependencies,
-  __resetClassDependencies,
 } from "../src/controllers/adminController.js";
 
 const createMockResponse = () => {
@@ -26,15 +24,12 @@ const createMockResponse = () => {
 
 afterEach(() => {
   __resetScheduleDependencies();
-  __resetClassDependencies();
 });
 
 test("createSchedule menolak jadwal dengan rentang waktu tidak valid", async () => {
   const req = {
     body: {
-      kelasId: 1,
-      subjectId: 2,
-      teacherId: 3,
+      teacherSubjectId: 5,
       semesterId: 4,
       hari: "Senin",
       jamMulai: "10:00",
@@ -50,55 +45,48 @@ test("createSchedule menolak jadwal dengan rentang waktu tidak valid", async () 
   assert.equal(res.body.message, "jamMulai harus lebih kecil daripada jamSelesai");
 });
 
-test("createSchedule mengembalikan 404 ketika kelas tidak ditemukan", async () => {
-  const req = {
-    body: {
-      kelasId: 10,
-      subjectId: 20,
-      teacherId: 30,
-      semesterId: 40,
-      hari: "Selasa",
-      jamMulai: "09:00",
-      jamSelesai: "10:00",
-    },
-  };
+test(
+  "createSchedule mengembalikan 404 ketika teacherSubjectId tidak ditemukan",
+  async () => {
+    const req = {
+      body: {
+        teacherSubjectId: 10,
+        semesterId: 40,
+        hari: "Selasa",
+        jamMulai: "09:00",
+        jamSelesai: "10:00",
+      },
+    };
 
-  const res = createMockResponse();
+    const res = createMockResponse();
 
-  __setClassDependencies({
-    classModel: {
-      getClassById: async () => null,
-    },
-    teacherModel: {
-      getTeacherById: async () => ({ id: 30 }),
-    },
-  });
+    __setScheduleDependencies({
+      semesterModel: {
+        getSemesterById: async () => ({ id: 40 }),
+      },
+      teacherSubjectHelper: {
+        getTeacherSubjectsMap: async () => ({}),
+      },
+      scheduleModel: {
+        findConflictingSchedules: async () => [],
+        createSchedule: async () => ({}),
+      },
+    });
 
-  __setScheduleDependencies({
-    subjectModel: {
-      getSubjectById: async () => ({ id: 20 }),
-    },
-    semesterModel: {
-      getSemesterById: async () => ({ id: 40 }),
-    },
-    scheduleModel: {
-      findConflictingSchedules: async () => [],
-      createSchedule: async () => ({}),
-    },
-  });
+    await createSchedule(req, res);
 
-  await createSchedule(req, res);
-
-  assert.equal(res.statusCode, 404);
-  assert.equal(res.body.message, "Kelas tidak ditemukan");
-});
+    assert.equal(res.statusCode, 404);
+    assert.equal(
+      res.body.message,
+      "Relasi guru dan mata pelajaran tidak ditemukan"
+    );
+  }
+);
 
 test("createSchedule menyimpan jadwal baru setelah validasi sukses", async () => {
   const req = {
     body: {
-      kelasId: "11",
-      subjectId: "22",
-      teacherId: "33",
+      teacherSubjectId: "55",
       semesterId: "44",
       hari: "Rabu",
       jamMulai: "07:30",
@@ -110,25 +98,22 @@ test("createSchedule menyimpan jadwal baru setelah validasi sukses", async () =>
 
   const res = createMockResponse();
   let receivedPayload = null;
-
-  __setClassDependencies({
-    classModel: {
-      getClassById: async (id) => ({ id }),
-    },
-    teacherModel: {
-      getTeacherById: async (id) => ({ id }),
-    },
-  });
+  let conflictPayload = null;
 
   __setScheduleDependencies({
-    subjectModel: {
-      getSubjectById: async (id) => ({ id }),
-    },
     semesterModel: {
       getSemesterById: async (id) => ({ id }),
     },
+    teacherSubjectHelper: {
+      getTeacherSubjectsMap: async () => ({
+        55: { id: 55, kelasId: 11, subjectId: 22, teacherId: 33 },
+      }),
+    },
     scheduleModel: {
-      findConflictingSchedules: async () => [],
+      findConflictingSchedules: async (payload) => {
+        conflictPayload = payload;
+        return [];
+      },
       createSchedule: async (payload) => {
         receivedPayload = payload;
         return { id: 99, ...payload };
@@ -140,10 +125,16 @@ test("createSchedule menyimpan jadwal baru setelah validasi sukses", async () =>
 
   assert.equal(res.statusCode, 200);
   assert.equal(res.body.message, "Jadwal berhasil dibuat");
-  assert.deepEqual(receivedPayload, {
+  assert.deepEqual(conflictPayload, {
+    teacherSubjectId: 55,
     kelasId: 11,
-    subjectId: 22,
     teacherId: 33,
+    hari: "Rabu",
+    jamMulai: "07:30",
+    jamSelesai: "08:15",
+  });
+  assert.deepEqual(receivedPayload, {
+    teacherSubjectId: 55,
     semesterId: 44,
     hari: "Rabu",
     jamMulai: "07:30",
@@ -156,9 +147,7 @@ test("createSchedule menyimpan jadwal baru setelah validasi sukses", async () =>
 test("createSchedule mengembalikan 409 ketika jadwal bentrok", async () => {
   const req = {
     body: {
-      kelasId: 1,
-      subjectId: 2,
-      teacherId: 3,
+      teacherSubjectId: 5,
       semesterId: 4,
       hari: "Kamis",
       jamMulai: "08:00",
@@ -167,25 +156,22 @@ test("createSchedule mengembalikan 409 ketika jadwal bentrok", async () => {
   };
 
   const res = createMockResponse();
-
-  __setClassDependencies({
-    classModel: {
-      getClassById: async () => ({ id: 1 }),
-    },
-    teacherModel: {
-      getTeacherById: async () => ({ id: 3 }),
-    },
-  });
+  let conflictPayload = null;
 
   __setScheduleDependencies({
-    subjectModel: {
-      getSubjectById: async () => ({ id: 2 }),
-    },
     semesterModel: {
       getSemesterById: async () => ({ id: 4 }),
     },
+    teacherSubjectHelper: {
+      getTeacherSubjectsMap: async () => ({
+        5: { id: 5, kelasId: 1, subjectId: 2, teacherId: 3 },
+      }),
+    },
     scheduleModel: {
-      findConflictingSchedules: async () => [{ id: 50 }],
+      findConflictingSchedules: async (payload) => {
+        conflictPayload = payload;
+        return [{ id: 50 }];
+      },
       createSchedule: async () => ({})
     },
   });
@@ -194,6 +180,14 @@ test("createSchedule mengembalikan 409 ketika jadwal bentrok", async () => {
 
   assert.equal(res.statusCode, 409);
   assert.equal(res.body.message, "Jadwal bertabrakan dengan jadwal lain");
+  assert.deepEqual(conflictPayload, {
+    teacherSubjectId: 5,
+    kelasId: 1,
+    teacherId: 3,
+    hari: "Kamis",
+    jamMulai: "08:00",
+    jamSelesai: "09:00",
+  });
 });
 
 test("updateSchedule meneruskan excludeId saat pengecekan konflik", async () => {
@@ -210,28 +204,19 @@ test("updateSchedule meneruskan excludeId saat pengecekan konflik", async () => 
   let conflictPayload = null;
   let updatePayload = null;
 
-  __setClassDependencies({
-    classModel: {
-      getClassById: async (id) => ({ id }),
-    },
-    teacherModel: {
-      getTeacherById: async (id) => ({ id }),
-    },
-  });
-
   __setScheduleDependencies({
-    subjectModel: {
-      getSubjectById: async (id) => ({ id }),
-    },
     semesterModel: {
       getSemesterById: async (id) => ({ id }),
+    },
+    teacherSubjectHelper: {
+      getTeacherSubjectsMap: async () => ({
+        55: { id: 55, kelasId: 11, subjectId: 22, teacherId: 33 },
+      }),
     },
     scheduleModel: {
       getScheduleById: async (id) => ({
         id,
-        kelasId: 1,
-        subjectId: 2,
-        teacherId: 3,
+        teacherSubjectId: 55,
         semesterId: 4,
         hari: "Jumat",
         jamMulai: "09:00",
@@ -256,14 +241,16 @@ test("updateSchedule meneruskan excludeId saat pengecekan konflik", async () => 
   assert.equal(res.statusCode, 200);
   assert.deepEqual(conflictOptions, { excludeId: 7 });
   assert.deepEqual(conflictPayload, {
-    kelasId: 1,
-    teacherId: 3,
+    teacherSubjectId: 55,
+    kelasId: 11,
+    teacherId: 33,
     hari: "Jumat",
     jamMulai: "10:00",
     jamSelesai: "11:00",
   });
   assert.equal(updatePayload.jamMulai, "10:00");
   assert.equal(updatePayload.jamSelesai, "11:00");
+  assert.equal(updatePayload.teacherSubjectId, 55);
 });
 
 test("updateSchedule mengembalikan 404 ketika jadwal tidak ditemukan", async () => {

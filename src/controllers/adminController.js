@@ -12,6 +12,7 @@ import * as RegistrationLink from "../models/registrationLink.js";
 import * as Semester from "../models/semesters.js";
 import * as Settings from "../models/settings.js";
 import * as Schedule from "../models/jadwalPelajaran.js";
+import * as TeacherSubject from "../models/teacherSubjects.js";
 
 import { successResponse, errorResponse } from "../utils/response.js";
 
@@ -20,6 +21,7 @@ let activeClassModel = Class;
 let activeSubjectModel = Subject;
 let activeSemesterModel = Semester;
 let activeScheduleModel = Schedule;
+let activeTeacherSubjectHelper = TeacherSubject;
 
 // Helper functions untuk pengujian untuk mengganti dependensi model.
 export const __setClassDependencies = (overrides = {}) => {
@@ -44,12 +46,17 @@ export const __setScheduleDependencies = (overrides = {}) => {
   if (overrides.scheduleModel) {
     activeScheduleModel = overrides.scheduleModel;
   }
+
+  if (overrides.teacherSubjectHelper) {
+    activeTeacherSubjectHelper = overrides.teacherSubjectHelper;
+  }
 };
 
 export const __resetScheduleDependencies = () => {
   activeSubjectModel = Subject;
   activeSemesterModel = Semester;
   activeScheduleModel = Schedule;
+  activeTeacherSubjectHelper = TeacherSubject;
 };
 
 const parseNumericId = (value) => {
@@ -89,6 +96,9 @@ const buildScheduleFilters = (query = {}) => {
 
   const teacherId = parseNumericId(query.teacherId);
   if (teacherId !== null) filters.teacherId = teacherId;
+
+  const teacherSubjectId = parseNumericId(query.teacherSubjectId);
+  if (teacherSubjectId !== null) filters.teacherSubjectId = teacherSubjectId;
 
   const semesterId = parseNumericId(query.semesterId);
   if (semesterId !== null) filters.semesterId = semesterId;
@@ -690,45 +700,45 @@ export const getScheduleDetail = async (req, res) => {
 };
 
 const validateScheduleReferences = async (
-  { kelasId, subjectId, teacherId, semesterId },
+  { teacherSubjectId, semesterId },
   res
 ) => {
-  const [kelas, subject, teacher, semester] = await Promise.all([
-    activeClassModel.getClassById(kelasId),
-    activeSubjectModel.getSubjectById(subjectId),
-    activeTeacherModel.getTeacherById(teacherId),
-    activeSemesterModel.getSemesterById(semesterId),
-  ]);
+  const getTeacherSubjectsMapFn =
+    activeTeacherSubjectHelper.getTeacherSubjectsMap ??
+    activeTeacherSubjectHelper.getTeacherSubjectMap ??
+    (async () => ({}));
 
-  if (!kelas) {
-    errorResponse(res, 404, "Kelas tidak ditemukan");
-    return false;
+  const teacherSubjectMap =
+    (await getTeacherSubjectsMapFn([teacherSubjectId])) ?? {};
+
+  const teacherSubject =
+    teacherSubjectMap instanceof Map
+      ? teacherSubjectMap.get(teacherSubjectId)
+      : teacherSubjectMap?.[teacherSubjectId];
+
+  if (!teacherSubject) {
+    errorResponse(
+      res,
+      404,
+      "Relasi guru dan mata pelajaran tidak ditemukan"
+    );
+    return { valid: false };
   }
 
-  if (!subject) {
-    errorResponse(res, 404, "Mata pelajaran tidak ditemukan");
-    return false;
-  }
-
-  if (!teacher) {
-    errorResponse(res, 404, "Guru tidak ditemukan");
-    return false;
-  }
+  const semester = await activeSemesterModel.getSemesterById(semesterId);
 
   if (!semester) {
     errorResponse(res, 404, "Semester tidak ditemukan");
-    return false;
+    return { valid: false };
   }
 
-  return true;
+  return { valid: true, teacherSubject };
 };
 
 export const createSchedule = async (req, res) => {
   try {
     const requiredFields = [
-      "kelasId",
-      "subjectId",
-      "teacherId",
+      "teacherSubjectId",
       "semesterId",
       "hari",
       "jamMulai",
@@ -743,22 +753,19 @@ export const createSchedule = async (req, res) => {
       return errorResponse(
         res,
         400,
-        "kelasId, subjectId, teacherId, semesterId, hari, jamMulai, dan jamSelesai wajib diisi"
+        "teacherSubjectId, semesterId, hari, jamMulai, dan jamSelesai wajib diisi"
       );
     }
 
-    const kelasId = parseNumericId(req.body.kelasId);
-    const subjectId = parseNumericId(req.body.subjectId);
-    const teacherId = parseNumericId(req.body.teacherId);
+    const teacherSubjectId = parseNumericId(req.body.teacherSubjectId);
     const semesterId = parseNumericId(req.body.semesterId);
 
-    if (
-      kelasId === null ||
-      subjectId === null ||
-      teacherId === null ||
-      semesterId === null
-    ) {
-      return errorResponse(res, 400, "ID referensi harus berupa angka yang valid");
+    if (teacherSubjectId === null || semesterId === null) {
+      return errorResponse(
+        res,
+        400,
+        "teacherSubjectId dan semesterId harus berupa angka yang valid"
+      );
     }
 
     const timeValidation = validateScheduleTimeRange(
@@ -770,18 +777,21 @@ export const createSchedule = async (req, res) => {
       return errorResponse(res, 400, timeValidation.message);
     }
 
-    const referencesValid = await validateScheduleReferences(
-      { kelasId, subjectId, teacherId, semesterId },
+    const referenceCheck = await validateScheduleReferences(
+      { teacherSubjectId, semesterId },
       res
     );
 
-    if (!referencesValid) {
+    if (!referenceCheck.valid) {
       return;
     }
 
+    const { teacherSubject } = referenceCheck;
+
     const conflicts = await activeScheduleModel.findConflictingSchedules({
-      kelasId,
-      teacherId,
+      teacherSubjectId,
+      kelasId: teacherSubject.kelasId,
+      teacherId: teacherSubject.teacherId,
       hari: req.body.hari,
       jamMulai: req.body.jamMulai,
       jamSelesai: req.body.jamSelesai,
@@ -797,9 +807,7 @@ export const createSchedule = async (req, res) => {
     }
 
     const schedule = await activeScheduleModel.createSchedule({
-      kelasId,
-      subjectId,
-      teacherId,
+      teacherSubjectId,
       semesterId,
       hari: req.body.hari,
       jamMulai: req.body.jamMulai,
@@ -826,22 +834,19 @@ export const updateSchedule = async (req, res) => {
       return errorResponse(res, 404, "Jadwal tidak ditemukan");
     }
 
-    const kelasId =
-      parseNumericId(req.body.kelasId) ?? parseNumericId(existing.kelasId);
-    const subjectId =
-      parseNumericId(req.body.subjectId) ?? parseNumericId(existing.subjectId);
-    const teacherId =
-      parseNumericId(req.body.teacherId) ?? parseNumericId(existing.teacherId);
+    const teacherSubjectId =
+      req.body.teacherSubjectId !== undefined
+        ? parseNumericId(req.body.teacherSubjectId)
+        : parseNumericId(existing.teacherSubjectId);
     const semesterId =
       parseNumericId(req.body.semesterId) ?? parseNumericId(existing.semesterId);
 
-    if (
-      kelasId === null ||
-      subjectId === null ||
-      teacherId === null ||
-      semesterId === null
-    ) {
-      return errorResponse(res, 400, "ID referensi harus berupa angka yang valid");
+    if (teacherSubjectId === null || semesterId === null) {
+      return errorResponse(
+        res,
+        400,
+        "teacherSubjectId dan semesterId harus berupa angka yang valid"
+      );
     }
 
     const hari = req.body.hari ?? existing.hari;
@@ -853,19 +858,22 @@ export const updateSchedule = async (req, res) => {
       return errorResponse(res, 400, timeValidation.message);
     }
 
-    const referencesValid = await validateScheduleReferences(
-      { kelasId, subjectId, teacherId, semesterId },
+    const referenceCheck = await validateScheduleReferences(
+      { teacherSubjectId, semesterId },
       res
     );
 
-    if (!referencesValid) {
+    if (!referenceCheck.valid) {
       return;
     }
 
+    const { teacherSubject } = referenceCheck;
+
     const conflicts = await activeScheduleModel.findConflictingSchedules(
       {
-        kelasId,
-        teacherId,
+        teacherSubjectId,
+        kelasId: teacherSubject.kelasId,
+        teacherId: teacherSubject.teacherId,
         hari,
         jamMulai,
         jamSelesai,
@@ -883,9 +891,7 @@ export const updateSchedule = async (req, res) => {
     }
 
     const schedule = await activeScheduleModel.updateSchedule(scheduleId, {
-      kelasId,
-      subjectId,
-      teacherId,
+      teacherSubjectId,
       semesterId,
       hari,
       jamMulai,

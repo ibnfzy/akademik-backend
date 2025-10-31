@@ -44,6 +44,17 @@ const buildScheduleFilters = (query = {}) => {
     }
   }
 
+  if (
+    query.teacherSubjectId !== undefined &&
+    query.teacherSubjectId !== null &&
+    query.teacherSubjectId !== ""
+  ) {
+    const parsedTeacherSubjectId = Number(query.teacherSubjectId);
+    if (!Number.isNaN(parsedTeacherSubjectId)) {
+      filters.teacherSubjectId = parsedTeacherSubjectId;
+    }
+  }
+
   if (query.hari) {
     filters.hari = query.hari;
   }
