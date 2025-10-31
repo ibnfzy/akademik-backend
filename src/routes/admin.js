@@ -67,6 +67,7 @@ import {
   createSchedule,
   updateSchedule,
   deleteSchedule,
+  getTeacherSubjectClasses,
 } from "../controllers/adminController.js";
 
 import { authenticate, authorize } from "../middlewares/auth.js";
@@ -164,6 +165,7 @@ router.put("/settings/semester-enforcement", updateSemesterEnforcementSetting);
 // ==========================
 // Schedule Management
 // ==========================
+router.get("/teacher-subject-classes", getTeacherSubjectClasses);
 router.get("/schedules", getSchedules);
 router.get("/schedules/:id", getScheduleDetail);
 router.post("/schedules", createSchedule);

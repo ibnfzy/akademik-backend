@@ -3,8 +3,11 @@ import assert from "node:assert/strict";
 import {
   createClass,
   updateClass,
+  getTeacherSubjectClasses,
   __setClassDependencies,
   __resetClassDependencies,
+  __setScheduleDependencies,
+  __resetScheduleDependencies,
 } from "../src/controllers/adminController.js";
 
 const createMockResponse = () => {
@@ -24,6 +27,7 @@ const createMockResponse = () => {
 
 afterEach(() => {
   __resetClassDependencies();
+  __resetScheduleDependencies();
 });
 
 test("createClass menyimpan walikelasId berdasarkan teacherId", async () => {
@@ -138,4 +142,68 @@ test("updateClass memperbarui walikelasId menggunakan teacherId", async () => {
   });
   assert.equal(res.statusCode, 200);
   assert.equal(res.body.message, "Kelas berhasil diperbarui");
+});
+
+test("getTeacherSubjectClasses mengembalikan data relasi dengan filter", async () => {
+  const req = {
+    query: {
+      teacherId: "3",
+      subjectId: "4",
+      kelasId: "5",
+    },
+  };
+  const res = createMockResponse();
+
+  const stubRelations = [
+    {
+      id: 10,
+      teacherId: 3,
+      subjectId: 4,
+      kelasId: 5,
+      teacherName: "Guru A",
+      subjectName: "Matematika",
+      className: "X IPA 1",
+    },
+  ];
+
+  let receivedFilters = null;
+
+  __setScheduleDependencies({
+    teacherSubjectHelper: {
+      getTeacherSubjectClassRelations: async (filters) => {
+        receivedFilters = filters;
+        return stubRelations;
+      },
+    },
+  });
+
+  await getTeacherSubjectClasses(req, res);
+
+  assert.deepEqual(receivedFilters, { teacherId: 3, subjectId: 4, kelasId: 5 });
+  assert.equal(res.statusCode, 200);
+  assert.equal(
+    res.body.message,
+    "Relasi guru, mata pelajaran, dan kelas berhasil diambil"
+  );
+  assert.deepEqual(res.body.data.relations, stubRelations);
+  assert.equal(res.body.data.success, true);
+});
+
+test("getTeacherSubjectClasses meneruskan error dari model", async () => {
+  const req = { query: {} };
+  const res = createMockResponse();
+
+  __setScheduleDependencies({
+    teacherSubjectHelper: {
+      getTeacherSubjectClassRelations: async () => {
+        throw new Error("Database error");
+      },
+    },
+  });
+
+  await getTeacherSubjectClasses(req, res);
+
+  assert.equal(res.statusCode, 500);
+  assert.equal(res.body.success, false);
+  assert.equal(res.body.message, "Database error");
 });
