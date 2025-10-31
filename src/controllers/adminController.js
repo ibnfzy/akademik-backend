@@ -247,7 +247,15 @@ export const getClasses = async (req, res) => {
 
 export const createClass = async (req, res) => {
   try {
-    const kelasPayload = { ...req.body };
+    const kelasPayload = {};
+
+    if (Object.prototype.hasOwnProperty.call(req.body, "tingkat")) {
+      kelasPayload.tingkat = req.body.tingkat;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(req.body, "jurusan")) {
+      kelasPayload.jurusan = req.body.jurusan;
+    }
 
     if (Object.prototype.hasOwnProperty.call(req.body, "walikelasId")) {
       const teacherId = req.body.walikelasId;
@@ -280,7 +288,15 @@ export const createClass = async (req, res) => {
 
 export const updateClass = async (req, res) => {
   try {
-    const kelasPayload = { ...req.body };
+    const kelasPayload = {};
+
+    if (Object.prototype.hasOwnProperty.call(req.body, "tingkat")) {
+      kelasPayload.tingkat = req.body.tingkat;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(req.body, "jurusan")) {
+      kelasPayload.jurusan = req.body.jurusan;
+    }
 
     if (Object.prototype.hasOwnProperty.call(req.body, "walikelasId")) {
       const teacherId = req.body.walikelasId;
