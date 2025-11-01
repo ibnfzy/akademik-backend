@@ -852,7 +852,7 @@ export const createSchedule = async (req, res) => {
       hari: req.body.hari,
       jamMulai: req.body.jamMulai,
       jamSelesai: req.body.jamSelesai,
-      ruang: req.body.ruangan ?? null,
+      ruangan: req.body.ruangan ?? null,
     });
 
     return successResponse(res, schedule, "Jadwal berhasil dibuat");
@@ -936,7 +936,7 @@ export const updateSchedule = async (req, res) => {
       hari,
       jamMulai,
       jamSelesai,
-      ruang: req.body.ruangan ?? existing.ruangan ?? null,
+      ruangan: req.body.ruangan ?? existing.ruangan ?? null,
     });
 
     return successResponse(res, schedule, "Jadwal berhasil diperbarui");
