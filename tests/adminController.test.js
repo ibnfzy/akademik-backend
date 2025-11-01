@@ -163,6 +163,8 @@ test("getTeacherSubjectClasses mengembalikan data relasi dengan filter", async (
       teacherName: "Guru A",
       subjectName: "Matematika",
       className: "X IPA 1",
+      walikelasId: 11,
+      walikelasName: "Guru B",
     },
   ];
 

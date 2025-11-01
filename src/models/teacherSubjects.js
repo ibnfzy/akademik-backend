@@ -41,6 +41,7 @@ export const getTeacherSubjectClassRelations = async (filters = {}) => {
     .leftJoin("teachers as t", "ts.teacherId", "t.id")
     .leftJoin("subjects as s", "ts.subjectId", "s.id")
     .leftJoin("classes as c", "ts.kelasId", "c.id")
+    .leftJoin("teachers as w", "c.walikelasId", "w.id")
     .select(
       "ts.id",
       "ts.teacherId",
@@ -48,7 +49,9 @@ export const getTeacherSubjectClassRelations = async (filters = {}) => {
       "ts.kelasId",
       "t.nama as teacherName",
       "s.nama as subjectName",
-      "c.nama as className"
+      "c.nama as className",
+      "c.walikelasId as walikelasId",
+      "w.nama as walikelasName"
     );
 
   if (filters.teacherId !== undefined && filters.teacherId !== null) {
