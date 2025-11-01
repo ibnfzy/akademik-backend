@@ -92,7 +92,6 @@ test("createSchedule menyimpan jadwal baru setelah validasi sukses", async () =>
       jamMulai: "07:30",
       jamSelesai: "08:15",
       ruang: "Lab Komputer",
-      keterangan: "Ujian",
     },
   };
 
@@ -140,7 +139,6 @@ test("createSchedule menyimpan jadwal baru setelah validasi sukses", async () =>
     jamMulai: "07:30",
     jamSelesai: "08:15",
     ruang: "Lab Komputer",
-    keterangan: "Ujian",
   });
 });
 
@@ -222,7 +220,6 @@ test("updateSchedule meneruskan excludeId saat pengecekan konflik", async () => 
         jamMulai: "09:00",
         jamSelesai: "10:00",
         ruang: null,
-        keterangan: null,
       }),
       findConflictingSchedules: async (payload, options) => {
         conflictPayload = payload;
