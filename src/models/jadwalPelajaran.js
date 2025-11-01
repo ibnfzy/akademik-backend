@@ -87,7 +87,7 @@ const pickSchedulePayload = (data = {}) => {
   if (data.hari !== undefined) payload.hari = data.hari;
   if (data.jamMulai !== undefined) payload.jamMulai = data.jamMulai;
   if (data.jamSelesai !== undefined) payload.jamSelesai = data.jamSelesai;
-  if (data.ruang !== undefined) payload.ruang = data.ruang ?? null;
+  if (data.ruangan !== undefined) payload.ruangan = data.ruangan ?? null;
 
   return payload;
 };

@@ -699,7 +699,8 @@ const validateScheduleTimeRange = (jamMulai, jamSelesai) => {
   if (start === null || end === null) {
     return {
       valid: false,
-      message: "Format jamMulai atau jamSelesai tidak valid. Gunakan format HH:MM.",
+      message:
+        "Format jamMulai atau jamSelesai tidak valid. Gunakan format HH:MM.",
     };
   }
 
@@ -760,11 +761,7 @@ const validateScheduleReferences = async (
       : teacherSubjectMap?.[teacherSubjectId];
 
   if (!teacherSubject) {
-    errorResponse(
-      res,
-      404,
-      "Relasi guru dan mata pelajaran tidak ditemukan"
-    );
+    errorResponse(res, 404, "Relasi guru dan mata pelajaran tidak ditemukan");
     return { valid: false };
   }
 
@@ -855,7 +852,7 @@ export const createSchedule = async (req, res) => {
       hari: req.body.hari,
       jamMulai: req.body.jamMulai,
       jamSelesai: req.body.jamSelesai,
-      ruang: req.body.ruang ?? null,
+      ruang: req.body.ruangan ?? null,
     });
 
     return successResponse(res, schedule, "Jadwal berhasil dibuat");
@@ -881,7 +878,8 @@ export const updateSchedule = async (req, res) => {
         ? parseNumericId(req.body.teacherSubjectId)
         : parseNumericId(existing.teacherSubjectId);
     const semesterId =
-      parseNumericId(req.body.semesterId) ?? parseNumericId(existing.semesterId);
+      parseNumericId(req.body.semesterId) ??
+      parseNumericId(existing.semesterId);
 
     if (teacherSubjectId === null || semesterId === null) {
       return errorResponse(
@@ -938,7 +936,7 @@ export const updateSchedule = async (req, res) => {
       hari,
       jamMulai,
       jamSelesai,
-      ruang: req.body.ruang ?? existing.ruang ?? null,
+      ruang: req.body.ruangan ?? existing.ruangan ?? null,
     });
 
     return successResponse(res, schedule, "Jadwal berhasil diperbarui");
